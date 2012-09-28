@@ -33,6 +33,7 @@
 #	- fixed the log display in the web interface when the log is not stored in the default location
 # Version 0.10 - June 7 2012
 #    - added temp and volts (PV) to pvoutput.org upload
+# Code move to http://code.google.com/p/eversolar-monitor/ - August 31 2012
 #
 #
 # Eversolar communications packet definition:
@@ -48,6 +49,7 @@
 
 use IO::Socket::INET;
 use AppConfig;
+use JSON;
 use DBI;
 
 our $config = AppConfig->new();
@@ -56,13 +58,14 @@ $config->define("eth2ser_port=s");
 $config->define("serial_port=s");
 $config->define("pvoutput_enabled=s");
 $config->define("pvoutput_api_key=s");
-$config->define("pvoutput_system_id=s");
+$config->define("pvoutput_system_id=s%");
 $config->define("pvoutput_status_interval_mins=s");
 $config->define("pvoutput_add_status_url=s");
 $config->define("options_debug=s");
 $config->define("options_query_inverter_secs=s");
 $config->define("options_log_file=s");
 $config->define("options_communication_method=s");
+$config->define("options_strings=s");
 $config->define("seg_enabled=s");
 $config->define("seg_upload_interval_mins=s");
 $config->define("seg_site_id=s");
@@ -97,7 +100,11 @@ $config->file("eversolar.ini");
 		"QUERY_NORMAL_INFO" => {
 			"REQUEST" => [0x11, 0x02],
 			"RESPONSE" => [0x11, 0x82]
-		}
+		},
+		"QUERY_DESCRIPTION" => {
+			"REQUEST" => [0x11, 0x00],
+			"RESPONSE" => [0x11, 0x80]
+		},
 	},
 	"WRITE" => { # CONTROL CODE 0x12
 	},
@@ -105,160 +112,66 @@ $config->file("eversolar.ini");
 	}
 );
 
-use constant {
-	TEMP		=> 0,
-	E_TODAY		=> 1,
-	VPV		=> 2,
-	IPV		=> 3,
-	IAC		=> 4,
-	VAC		=> 5,
-	FREQUENCY	=> 6,
-	PAC		=> 7,
-	IMPEDANCE	=> 8,
-	NA_1		=> 9,
-	E_TOTAL		=> 10,
-	NA_2		=> 11,
-	HOURS_UP	=> 12,
-	OP_MODE		=> 13
-};
 
-use constant FALSE => 0;
-use constant TRUE => 1;
+if($config->options_strings == 1) {
+    %DATA_BYTES = (
+        "TEMP"        => 0,
+        "E_TODAY"     => 1,
+        "VPV"         => 2,
+        "IPV"         => 3,
+        "IAC"         => 4,
+        "VAC"         => 5,
+        "FREQUENCY"   => 6,
+        "PAC"         => 7,
+        "IMPEDANCE"   => 8,
+        "NA_1"        => 9,
+        "E_TOTAL"     => 10,
+        "NA_2"        => 11,
+        "HOURS_UP"    => 12,
+        "OP_MODE"     => 13
+    );
+} elsif($config->options_strings == 2) {
+    %DATA_BYTES = (    
+        "TEMP"		=> 0,
+        "E_TODAY"	=> 1,
+        "VPV" 		=> 2,
+        "VPV2"		=> 3,
+        "IPV" 		=> 4,
+        "IPV2"		=> 5,
+        "IAC"		=> 6,
+        "VAC"		=> 7,
+        "FREQUENCY"	=> 8,
+        "PAC"		=> 9,
+        "NA_0"		=> 10,
+        "NA_1"		=> 11,
+        "E_TOTAL"	=> 12,
+        "NA_2"		=> 13,
+        "HOURS_UP"	=> 14,
+        "OP_MODE"	=> 15
+    );
+} else {
+    die "Incorrect config option for 'strings'\n";
+}
 
-our $our_address = 0x01;
-our $inverter_address = 0xAA;
+use constant START_INVERTER_ADDRESS => 0x10; # start at 10 - giving us 244 available addresses
+use constant OUR_ADDRESS => 0x01;
+
+our $sock = 0;
+our $last_min = -1;
+our $e_last_wh = -1;
+
+our $next_inverter_address = START_INVERTER_ADDRESS;
 our %inverters;
 
 our $dbh = DBI->connect("dbi:SQLite:db.sqlite");
-my $sql = "CREATE TABLE IF NOT EXISTS inverter (
-    serial_number VARCHAR(128), 
-    timestamp VARCHAR(64),
-    pac INT,
-    e_today FLOAT,
-    e_total FLOAT,
-    vpv FLOAT,
-    ipv FLOAT,
-    vac FLOAT,
-    iac FLOAT,
-    frequency FLOAT,
-    impedance FLOAT,
-    hours_up FLOAT,
-    op_mode INT,
-    temp FLOAT
-)";
 
-$dbh->do($sql);
+##
+## sub routines
+##
 
-if($config->web_server_enabled) {
-	use JSON;
-
-	{
-		package SolarWebServer;
-
-		use HTTP::Server::Simple::CGI;
-		use base qw(HTTP::Server::Simple::CGI);
-		use JSON;
-
-		my %dispatch = (
-			'/' => \&index,
-			'/inverter-data' => \&inverter_data,
-			'/log' => \&log,
-			# ...
-		);
-
-		sub handle_request {
-			my $self = shift;
-			my $cgi  = shift;
-
-			my $path = $cgi->path_info();
-			my $handler = $dispatch{$path};
-
-			if (ref($handler) eq "CODE") {
-				print "HTTP/1.0 200 OK\r\n";
-				$handler->($cgi);
-			} else {
-				print "HTTP/1.0 404 Not found\r\n";
-				print $cgi->header,
-					$cgi->start_html('Not found'),
-					$cgi->h1('Not found'),
-					$cgi->end_html;
-			}
-		}
-
-		sub index {
-			my $cgi  = shift;   # CGI.pm object
-			return if !ref $cgi;
-
-			open my $fh, "<www/index.html";
-			my $data = do { local $/; <$fh> };
-
-			print $cgi->header,
-				$data;
-		}
-
-		sub inverter_data {
-			my $cgi  = shift;   # CGI.pm object
-			return if !ref $cgi;
-
-			print $cgi->header('application/json');
-
-			open FILE, "</tmp/eversolar";
-			while(<FILE>) {
-				 print $_;
-			}
-		}
-
-		sub log {
-			my $cgi  = shift;   # CGI.pm object
-			return if !ref $cgi;
-
-			my $line_limit = 100;
-			my $page = $cgi->param('page');
-
-			print $cgi->header;
-
-			open FILE, "<".$config->options_log_file;
-			@lines = reverse <FILE>;
-
-			my $count = 0;
-			foreach $line (@lines) {
-				if($count < (($page*$line_limit)+1)) {
-					$count++;
-					next;
-				}
-
-				print $line;
-		
-				if($count == ($line_limit+($page*$line_limit))) {
-					last;
-				} else {
-					$count++;
-				}
-			}
-		}
-
-	} 
-
-	# start the web server on port $config->web_server_port
-	our $web_server_pid = SolarWebServer->new($config->web_server_port)->background();
-
-	$SIG{INT} = sub { 
-		syswrite(STDERR, "\nCaught INT signal...\n");
-		
-		syswrite(STDERR, "Shutting down web server (pid $web_server_pid)...\n");
-		my $cmd = `kill -9 $web_server_pid`;
-		
-		syswrite(STDERR, "Exiting.\n");
-		exit;
-	};
-
-	# tmp file for web server
-	$json_text = encode_json \%inverters;
-	open(OUT, ">/tmp/eversolar") or die "Cannot open file /tmp/eversolar for truncating\n";
-	printf(OUT "%s", $json_text);
-	close OUT;
-
-}
+##
+## send packet to inverter
+##
 
 sub send_request {
 	my $destination_address = shift;
@@ -268,7 +181,7 @@ sub send_request {
 
 	my $data_length = scalar(@data);
 
-	@tmp_packet = (0xAA, 0x55, $our_address, 0x00, 0x00, $destination_address, $ctrl_func_code{"REQUEST"}[0], $ctrl_func_code{"REQUEST"}[1], $data_length);
+	@tmp_packet = (0xAA, 0x55, OUR_ADDRESS, 0x00, 0x00, $destination_address, $ctrl_func_code{"REQUEST"}[0], $ctrl_func_code{"REQUEST"}[1], $data_length);
 	if($data_length) {
 		push(@tmp_packet, @data);
 	}
@@ -282,23 +195,34 @@ sub send_request {
 	}
 
 	$packet = pack("C".$tmp_packet_length."n", (@tmp_packet, $checksum));
-	if($config->options_communication_method == "eth2ser") {
-		print $sock "$packet";
-	} elsif($config->options_communication_method == "serial") {
-		$sock->write($packet);
-	}
 
 	if($config->options_debug) {
-		print "sending packet to inverter: \n";
+		print "sending packet to inverter... \n";
 		print_bytes($packet, length($packet));
 	}
 
+	if($config->options_communication_method eq "eth2ser") {
+        unless($sock->send($packet, scalar($packet))) {
+			pmu_log("Failed to write to socket: $!");
+            $sock = 0;
+	        return 0;
+        }
+	} elsif($config->options_communication_method eq "serial") {
+		$sock->write($packet);
+	}
+
+    # allow time for inverter to respond
 	sleep 1;
 
-	if($ctrl_func_code{"RESPONSE"} != "") {
-		if($config->options_communication_method == "eth2ser") {
+	if($ctrl_func_code{"RESPONSE"} ne "") {
+		if($config->options_communication_method eq "eth2ser") {
 			$sock->recv($response, 256);
-		} elsif($config->options_communication_method == "serial") {
+			#unless(defined $sock->recv($response, 256)) {
+            #    pmu_log("Failed to read from socket: $!");
+            #    $sock = 0;
+            #    return 0;
+            #}
+		} elsif($config->options_communication_method eq "serial") {
 			($count_in, $response) = $sock->read(256);
 		}
 
@@ -313,60 +237,62 @@ sub send_request {
 			if(validate_checksum(@recv_packet)) {
 				my $len = length($response) - 11;
 				my ($ctrl_code, $func_code, @data) = unpack("xxxxxxCCxC".$len."xx", $response);
-	#use Data::Dumper;
-	#print Dumper(\@data);
+#use Data::Dumper;
+#print Dumper(\@data);
 
 				if($ctrl_code == $ctrl_func_code{"RESPONSE"}[0] &&
 					$func_code == $ctrl_func_code{"RESPONSE"}[1]) {
 					return pack("C*", @data);
 				}
 			}
-		}
-	}
+        }
+	} else {
+    	return 1;
+    }
 
-	return "";
+    # if we fall through to here, something isn't right!
+    return 0;
 }
-
-#send_request(0x00, $CTRL_FUNC_CODES{'REGISTER'}{'RE_REGISTER'}, [0x01, 0x02]);
-#exit;
-
 
 ##
 ## Dump a buffer in hex for debugging purposes
 ##
 
 sub print_bytes {
-        my $buf = shift;
-        my $len = shift;
-	my $line_count = 0;
+    my $buf = shift;
+    my $len = shift;
+    my $line_count = 0;
 
-        if ($len <= 0) {
-                return;
+    if ($len <= 0) {
+        return;
+    }
+
+    my @bytes = unpack("C$len", $buf);
+
+    if ($len > 0) {
+        for (my $i=0; $i<$len; $i++) {
+            printf "%02x ", $bytes[$i];
+            if ($line_count++ > 15) {
+                $line_count = 0;
+                print "\n";
+            }
         }
-        my @bytes = unpack("C$len", $buf);
-
-        if ($len > 0) {
-                for (my $i=0; $i<$len; $i++) {
-                        printf "%02x ", $bytes[$i];
-                        if ($line_count++ > 15) {
-                                $line_count = 0;
-                                print "\n";
-                        }
-
-                }
-        }
-        printf "\n";
+    }
+    printf "\n";
 }
 
 ##
-## Connect to the ethernet to serial converter attached to the inverter
+## Connect to the ethernet-to-serial converter attached to the inverter
 ##
 
 sub eth2ser_connect {
-	# connect to ethernet to serial device attached to inverter
+    # make sure the sock is closed
+    shutdown($sock, 2);
+
+	# connect to ethernet to serial converter attached to inverter
 	# loop until it connects
-	while (!$sock) {
-		our $sock = new IO::Socket::INET (
+	do {
+		$sock = new IO::Socket::INET (
 			PeerAddr => $config->eth2ser_ip_address,
 			PeerPort => $config->eth2ser_port,
 			Proto => 'tcp',
@@ -375,18 +301,22 @@ sub eth2ser_connect {
 		if ($sock) {
 			pmu_log("Connected to the ethernet to serial converter");
 		} else {
-			pmu_log("Unable to connect to the ethernet to serial converter ... sleeping");
+			pmu_log("Unable to connect to the ethernet to serial converter ... sleeping 60 seconds");
 			sleep 60;
 		}
-	}
+	} until ($sock);
 
 	my $timeo = pack("l!l!", 1, 0);
 	$sock->sockopt(SO_RCVTIMEO, $timeo);
 	$sock->sockopt(SO_SNDTIMEO, $timeo);
 
 	# sleep to allow inverter time to ready itself for connection
-	#sleep 10;
+	sleep 10;
 }
+
+##
+## Connect directly to the inverter via serial
+##
 
 sub serial_connect {
 	if ($^O eq 'MSWin32') {		# Win32 (ActivePerl)
@@ -408,55 +338,76 @@ sub serial_connect {
 	$sock->read_const_time(1000); 	# 1 second per unfulfilled "read" call
 }
 
+##
+## send the re-register packet to inverters 3 times (happens after initial connect)
+##
+
 sub re_register_inverters {
-	# ask all inverters to drop their registration and respond to register requests
-	send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"RE_REGISTER"});
+	# ask all inverters to drop their registration and respond to register requests - send packet 3 times as per protocol specs
+    for(my $i=0; $i<3; $i++) {
+	    unless(send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"RE_REGISTER"})) {
+            pmu_log("Failed to send re-register message");
+            return 0;
+        }
+    }
+
+    return 1;
 }
+
+##
+## send the register packet to any inverters out there, and register inverter that responds first
+##
 
 sub register_inverter {
 	# request serial numbers
 	$serial_num_response = send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"OFFLINE_QUERY"});
-	if($serial_num_response != "") {
+	if($serial_num_response) {
 		my $serial_number = unpack("A*", $serial_num_response);
 		pmu_log("Found serial number: $serial_number");
 
 		# send register address (serial number followed by 1 byte address we allocate to inverter)
 		my @register_address = unpack("C*", $serial_num_response);
-		push(@register_address, $inverter_address);
-		$response = send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"SEND_REGISTER_ADDRESS"}, \@register_address);
-		my $len = length($response);
-		if ($len != 0) {
+		push(@register_address, $next_inverter_address);
+		$address_response = send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"SEND_REGISTER_ADDRESS"}, \@register_address);
+		if($address_response) {
 			# check register acknowledgement
-			my $register_acknowledgement = unpack("C", $response);
+    		my $len = length($address_response);
+			my $register_acknowledgement = unpack("C", $address_response);
 			if($register_acknowledgement == 06) {
 				pmu_log("Inverter acknowledged registration");
 
 				# request inverter ID 
-				$response = send_request($inverter_address, $CTRL_FUNC_CODES{"READ"}{"QUERY_INVERTER_ID"});
-				my $len = length($response);
-				if ($len != 0) {
-					my $inverter_id = unpack("A*", $response);
+				$inverter_id_response = send_request($next_inverter_address, $CTRL_FUNC_CODES{"READ"}{"QUERY_INVERTER_ID"});
+				if($inverter_id_response) {
+				    my $len = length($inverter_id_response);
+					my $inverter_id = unpack("A*", $inverter_id_response);
 					pmu_log("Connected to inverter: $inverter_id");
 
 					# remember this inverter
-	                $timestamp = sprintf ("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
-					$inverters{$inverter_address}{"id_string"} = $inverter_id;
-					$inverters{$inverter_address}{"serial"} = $serial_number;
-					$inverters{$inverter_address}{"connected"} = $timestamp;
-					$inverters{$inverter_address}{"max"} = {
+	                $timestamp = get_timestamp();
+					$inverters{$next_inverter_address}{"id_string"} = $inverter_id;
+					$inverters{$next_inverter_address}{"serial"} = $serial_number;
+					$inverters{$next_inverter_address}{"connected"} = $timestamp;
+					$inverters{$next_inverter_address}{"max"} = {
 						"pac" => {
 							"watts" => 0,
 							"timestamp" => $timestamp
 						}
 					};
 
-					$inverter_address++;
-				}
+					$next_inverter_address++;
+                } else {
+                    pmu_log("No response to 'query inverter id' request for inverter $serial_number");
+                }
 			} else {
-				pmu_log("Inverter register acknowledgement incorrect. Expected 06, received $register_acknowledgement");
+				pmu_log("Inverter register acknowledgement incorrect for inverter $serial_number. Expected 06, received $register_acknowledgement");
 			}
-		}
-	}
+        } else {
+            pmu_log("No response to 'send register address' request for inverter $serial_number");
+        }
+    } else {
+        pmu_log("No response to 'offline query' request - no offline inverters");
+    }
 }
 
 
@@ -465,18 +416,17 @@ sub register_inverter {
 ##
 
 sub pmu_log {
-	my $msg = shift;
+    my $msg = shift;
 
-	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
-	$timestamp = sprintf ("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
+    $timestamp = get_timestamp();
 
-        open(OUT, ">>".$config->options_log_file) or die "Cannot open file ".$config->options_log_file." for writing\n";
-        printf(OUT "%s: %s\n", $timestamp, $msg);
-        close OUT;
+    open(OUT, ">>".$config->options_log_file) or die "Cannot open file ".$config->options_log_file." for writing\n";
+    printf(OUT "%s: %s\n", $timestamp, $msg);
+    close OUT;
 
-	if($config->options_debug) {
-		print sprintf("%s: %s\n", $timestamp, $msg);
-	}
+    if($config->options_debug) {
+        print sprintf("%s: %s\n", $timestamp, $msg);
+    }
 }
 
 ##
@@ -509,6 +459,10 @@ sub parse_packet {
 	return @data;
 }
 
+##
+##	Write out a JSON file for web server
+##
+
 sub write_web_json {
 	$json_text = encode_json \%inverters;
 	open(OUT, ">/tmp/eversolar") or die "Cannot open file /tmp/eversolar for writing\n";
@@ -517,32 +471,115 @@ sub write_web_json {
 }
 
 ##
+##	Establish socket connection to inverter
+##
+
+sub inverter_connect {
+    my $connected = 0;
+    while(!$connected) {
+        if($config->options_communication_method eq "eth2ser") {
+            pmu_log("Connecting to the ethernet to serial converter");
+            eth2ser_connect();
+        } elsif($config->options_communication_method eq "serial") {
+            pmu_log("Connecting to the serial port");
+            serial_connect();
+        }
+
+        $next_inverter_address = START_INVERTER_ADDRESS;
+		
+        pmu_log("Asking all inverters to re-register");
+		$connected = re_register_inverters();
+    }
+
+    # reset some "last" vars
+    $last_min = -1;
+    $e_last_wh = -1;
+}
+
+##
+## get current timestamp
+##
+
+sub get_timestamp {
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+	return sprintf ("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
+}
+
+
+##
+## START OF PROGRAM
+##
+
+##
+## Setup sqlite database
+##
+
+$dbh->do("CREATE TABLE IF NOT EXISTS inverter (
+    serial_number VARCHAR(128), 
+    timestamp VARCHAR(64),
+    pac INT,
+    e_today FLOAT,
+    e_total FLOAT,
+    vpv FLOAT,
+    vpv2 FLOAT,
+    ipv FLOAT,
+    ipv2 FLOAT,
+    vac FLOAT,
+    iac FLOAT,
+    frequency FLOAT,
+    impedance FLOAT,
+    hours_up FLOAT,
+    op_mode INT,
+    temp FLOAT
+)");
+
+# vpv2 and ipv2 were added in later versions - fix any existing databases that don't have the columns
+$dbh->do("ALTER TABLE inverter ADD COLUMN vpv2 FLOAT") or 1;
+$dbh->do("ALTER TABLE inverter ADD COLUMN ipv2 FLOAT") or 1;
+
+
+##
+## web server
+##
+
+if($config->web_server_enabled) {
+    require "web-server.pl";
+
+	# start the web server on port $config->web_server_port
+	our $web_server_pid = SolarWebServer->new($config->web_server_port)->background();
+
+	$SIG{INT} = sub { 
+		syswrite(STDERR, "\nCaught INT signal...\n");
+		
+		syswrite(STDERR, "Shutting down web server (pid $web_server_pid)...\n");
+		my $cmd = `kill -9 $web_server_pid`;
+		
+		syswrite(STDERR, "Exiting.\n");
+		exit;
+	};
+
+	# tmp file for web server
+	$json_text = encode_json \%inverters;
+	open(OUT, ">/tmp/eversolar") or die "Cannot open file /tmp/eversolar for truncating\n";
+	printf(OUT "%s", $json_text);
+	close OUT;
+}
+
+##
 ##	Main Loop
 ##
 
-our $sock = FALSE;
-my $last_min = -1;
-my $e_last_wh = -1;
-
-while (TRUE) {
-
-	# connect to inverter. eth2ser: check each time we are still connected. serial: only connect on startup
-	if($config->options_communication_method == "eth2ser" && !$sock) {
-		pmu_log("Calling eth2ser_connect()");
-		eth2ser_connect();
-		pmu_log("Calling re_register_inverters()");
-		re_register_inverters();
-	} elsif($config->options_communication_method == "serial" && !$sock) {
-		serial_connect();
-		re_register_inverters();
-	}
+while(1) {
+	# connect to inverter if not connected (!$sock)
+    if(!$sock) {
+        inverter_connect();
+    }
 	
-	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
-	$timestamp = sprintf ("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
+	$timestamp = get_timestamp();
 
 	# see if there are any new inverters every once in a while (every minute)
 	if($min != $last_min) {
-		pmu_log("Calling register_inverter()");
+		pmu_log("Asking for any inverters to register");
 		register_inverter();
 	}
 
@@ -550,139 +587,149 @@ while (TRUE) {
 	foreach $inverter (keys(%inverters)) {
 		$response = send_request($inverter, $CTRL_FUNC_CODES{"READ"}{"QUERY_NORMAL_INFO"});
 
-		my $len = length($response);
-		if ($len == 0) {
-			$inverters{$inverter}{"response_timeout_count"}++;
-			pmu_log("Lost contact with inverter with serial number: ".$inverters{$inverter}{"serial"}." (".$inverters{$inverter}{"response_timeout_count"}." time(s))");
+        if($response) {
+            # good response - reset response_timeout_count
+            $inverters{$inverter}{"response_timeout_count"} = 0;
 
-			if($inverters{$inverter}{"response_timeout_count"} == 1) {
-				pmu_log("Lost contact with inverter with serial number: ".$inverters{$inverter}{"serial"}.", forgetting inverter");
-				# forget about the inverter
-				delete $inverters{$inverter};
+            my $len = length($response);
+            my @data = parse_packet(unpack("C$len", $response));
+            
+            my $e_today_kwh = $data[$DATA_BYTES{'E_TODAY'}]/100;
+            my $e_today_wh = $e_today_kwh * 1000;
+            my $e_total = $data[$DATA_BYTES{'E_TOTAL'}]/10;
+            my $pac = $data[$DATA_BYTES{'PAC'}];
+            my $temp = $data[$DATA_BYTES{'TEMP'}]/10;
+            my $volts = $data[$DATA_BYTES{'VAC'}]/10;
 
-				if($config->web_server_enabled) {
-					write_web_json();
-				}
+            $inverters{$inverter}{"data"} = {
+                "timestamp" 	=> $timestamp,
+                "pac" 		=> $data[$DATA_BYTES{'PAC'}],
+                "e_today" 	=> $e_today_kwh,
+                "e_total" 	=> $e_total,
+                "vpv" 		=> $data[$DATA_BYTES{'VPV'}]/10,
+                "vpv2" 		=> $data[$DATA_BYTES{'VPV2'}]/10,
+                "ipv" 		=> $data[$DATA_BYTES{'IPV'}]/10,
+                "ipv2" 		=> $data[$DATA_BYTES{'IPV2'}]/10,
+                "vac" 		=> $data[$DATA_BYTES{'VAC'}]/10,
+                "iac" 		=> $data[$DATA_BYTES{'IAC'}]/10,
+                "frequency" 	=> $data[$DATA_BYTES{'FREQUENCY'}]/100,
+                "impedance" 	=> $data[$DATA_BYTES{'IMPEDANCE'}],
+                "hours_up" 	=> $data[$DATA_BYTES{'HOURS_UP'}],
+                "op_mode" 	=> $data[$DATA_BYTES{'OP_MODE'}],
+                "temp"	 	=> $data[$DATA_BYTES{'TEMP'}]/10
+            };
 
-				# set $sock to false, so that we check that there's still a connection to the serial device
-				$sock = FALSE;
-			}
+            # store in db
+            $dbh->do("
+                INSERT INTO inverter 
+                    (serial_number, 
+                     timestamp, 
+                     pac, 
+                     e_today, 
+                     e_total, 
+                     vpv, 
+                     vpv2, 
+                     ipv, 
+                     ipv2, 
+                     vac, 
+                     iac, 
+                     frequency, 
+                     impedance, 
+                     hours_up, 
+                     op_mode, 
+                     temp) 
+                VALUES 
+                    ('".$inverters{$inverter}{"serial"}."',
+                     '".$inverters{$inverter}{"data"}{"timestamp"}."',
+                     '".$inverters{$inverter}{"data"}{"pac"}."',
+                     '".$inverters{$inverter}{"data"}{"e_today"}."',
+                     '".$inverters{$inverter}{"data"}{"e_total"}."',
+                     '".$inverters{$inverter}{"data"}{"vpv"}."',
+                     '".$inverters{$inverter}{"data"}{"vpv2"}."',
+                     '".$inverters{$inverter}{"data"}{"ipv"}."',
+                     '".$inverters{$inverter}{"data"}{"ipv2"}."',
+                     '".$inverters{$inverter}{"data"}{"vac"}."',
+                     '".$inverters{$inverter}{"data"}{"iac"}."',
+                     '".$inverters{$inverter}{"data"}{"frequency"}."',
+                     '".$inverters{$inverter}{"data"}{"impedance"}."',
+                     '".$inverters{$inverter}{"data"}{"hours_up"}."',
+                     '".$inverters{$inverter}{"data"}{"op_mode"}."',
+                     '".$inverters{$inverter}{"data"}{"temp"}."'
+                    )
+            ");
 
-	        sleep $config->options_query_inverter_secs;
-			next;
-		} else {
-			$inverters{$inverter}{"response_timeout_count"} = 0;
-		}
+            if($data[PAC] > $inverters{$inverter}{"max"}{"pac"}{"watts"}) {
+                $inverters{$inverter}{"max"}{"pac"} = {
+                    "timestamp"	=> $timestamp,
+                    "watts"		=> $data[$DATA_BYTES{'PAC'}]
+                };
+            }
 
-		my @data = parse_packet(unpack("C$len", $response));
-		
-		my $e_today_kwh = $data[E_TODAY]/100;
-		my $e_today_wh = $e_today_kwh * 1000;
-		my $e_total = $data[E_TOTAL]/10;
-		my $pac = $data[PAC];
-		my $temp = $data[TEMP]/10;
-		my $volts = $data[VPV]/10;
+            # tmp file for web server
+            if($config->web_server_enabled) {
+                write_web_json();
+            }
 
-		$inverters{$inverter}{"data"} = {
-			"timestamp" 	=> $timestamp,
-			"pac" 		=> $data[PAC],
-			"e_today" 	=> $e_today_kwh,
-			"e_total" 	=> $e_total,
-			"vpv" 		=> $data[VPV]/10,
-			"ipv" 		=> $data[IPV]/10,
-			"vac" 		=> $data[VAC]/10,
-			"iac" 		=> $data[IAC]/10,
-			"frequency" 	=> $data[FREQUENCY]/100,
-			"impedance" 	=> $data[IMPEDANCE],
-			"hours_up" 	=> $data[HOURS_UP],
-			"op_mode" 	=> $data[OP_MODE],
-			"temp"	 	=> $data[TEMP]/10
-		};
+            pmu_log($inverters{$inverter}{"serial"}." output: $pac W, Total: $e_total kWh, Today: $e_today_kwh kWh");
 
-        # store in db
-        $dbh->do("
-            INSERT INTO inverter 
-                (serial_number, 
-                 timestamp, 
-                 pac, 
-                 e_today, 
-                 e_total, 
-                 vpv, 
-                 ipv, 
-                 vac, 
-                 iac, 
-                 frequency, 
-                 impedance, 
-                 hours_up, 
-                 op_mode, 
-                 temp) 
-            VALUES 
-                ('".$inverters{$inverter}{"serial"}."',
-                 '".$inverters{$inverter}{"data"}{"timestamp"}."',
-                 '".$inverters{$inverter}{"data"}{"pac"}."',
-                 '".$inverters{$inverter}{"data"}{"e_today"}."',
-                 '".$inverters{$inverter}{"data"}{"e_total"}."',
-                 '".$inverters{$inverter}{"data"}{"vpv"}."',
-                 '".$inverters{$inverter}{"data"}{"ipv"}."',
-                 '".$inverters{$inverter}{"data"}{"vac"}."',
-                 '".$inverters{$inverter}{"data"}{"iac"}."',
-                 '".$inverters{$inverter}{"data"}{"frequency"}."',
-                 '".$inverters{$inverter}{"data"}{"impedance"}."',
-                 '".$inverters{$inverter}{"data"}{"hours_up"}."',
-                 '".$inverters{$inverter}{"data"}{"op_mode"}."',
-                 '".$inverters{$inverter}{"data"}{"temp"}."'
-                )
-        ");
+            if($config->pvoutput_enabled && ($min % $config->pvoutput_status_interval_mins) == 0 && $min != $last_min) {
+                my $pv_date = `date +%Y%m%d`;
+                my $pv_time = `date +%H:%M`;
+                chomp($pv_date);
+                chomp($pv_time);
 
-		if($data[PAC] > $inverters{$inverter}{"max"}{"pac"}{"watts"}) {
-			$inverters{$inverter}{"max"}{"pac"} = {
-				"timestamp"	=> $timestamp,
-				"watts"		=> $data[PAC]
-			};
-		}
+                my $pvoutput_api_key = $config->pvoutput_api_key;
+                my $pvoutput_add_status_url = $config->pvoutput_add_status_url;
+                my $this_pvoutput_system_id = $config->pvoutput_system_id->{$inverters{$inverter}{"serial"}};
+#use Data::Dumper;
+#print Dumper($this_pvoutput_system_id);
+#die;
 
-		# tmp file for web server
-		if($config->web_server_enabled) {
-			write_web_json();
-		}
+                my $cmd = `curl -m 30 -s -d "d=$pv_date" -d "t=$pv_time" -d "v1=$e_today_wh" -d "v2=$pac" -d "v5=$temp" -d "v6=$volts" -H "X-Pvoutput-Apikey:$pvoutput_api_key" -H "X-Pvoutput-SystemId:$this_pvoutput_system_id" $pvoutput_add_status_url 2>&1 `;
+                chomp($cmd);
+                pmu_log($inverters{$inverter}{"serial"}." uploading to pvoutput.org, response: $cmd");
 
-		pmu_log("Output: $pac W, Total: $e_total kWh, Today: $e_today_kwh kWh");
+            }
 
-		if($config->pvoutput_enabled && ($min % $config->pvoutput_status_interval_mins) == 0 && $min != $last_min) {
-			my $pv_date = `date +%Y%m%d`;
-			my $pv_time = `date +%H:%M`;
-			chomp($pv_date);
-			chomp($pv_time);
+            # send data to seg
+            if($config->seg_enabled && ($min % $config->seg_upload_interval_mins) == 0 && $min != $last_min) {
+                if($e_last_wh >= 0) { #first iteration, cant upload to seg yet
+                    my $e_now_wh = $e_today_wh - $e_last_wh;
+            
+                    my $seg_site_id = $config->seg_site_id;
+                    my $seg_device = $config->seg_device;
+                    my $seg_power_stream = $config->seg_power_stream;
+                    my $seg_energy_stream = $config->seg_energy_stream;
+                    my $seg_api_url = $config->seg_api_url;
 
-			my $pvoutput_api_key = $config->pvoutput_api_key;
-			my $pvoutput_system_id = $config->pvoutput_system_id;
-			my $pvoutput_add_status_url = $config->pvoutput_add_status_url;
-			my $cmd = `curl -m 30 -s -d "d=$pv_date" -d "t=$pv_time" -d "v1=$e_today_wh" -d "v2=$pac" -d "v5=$temp" -d "v6=$volts" -H "X-Pvoutput-Apikey:$pvoutput_api_key" -H "X-Pvoutput-SystemId:$pvoutput_system_id" $pvoutput_add_status_url 2>&1 `;
-			chomp($cmd);
-			pmu_log("Uploading to pvoutput.org, response: $cmd");
+                    $curl_data = "(node $seg_device ? ($seg_power_stream $pac) ($seg_energy_stream $e_now_wh))";
+                    my $cmd = `curl -s -d "data_post=(site $seg_site_id $curl_data)" $seg_api_url 2>&1 `;
+                    chomp($cmd);
+                    pmu_log($inverters{$inverter}{"serial"}." uploading to smartenergygroups.com (power: $pac, energy: $e_now_wh), response: $cmd");
+                }
 
-		}
+                $e_last_wh = $e_today_wh;
+            }
+        } else {
+            $inverters{$inverter}{"response_timeout_count"}++;
+            pmu_log($inverters{$inverter}{"serial"}." lost contact with inverter (".$inverters{$inverter}{"response_timeout_count"}." time(s))");
 
-		# send data to seg
-		if($config->seg_enabled && ($min % $config->seg_upload_interval_mins) == 0 && $min != $last_min) {
-			if($e_last_wh >= 0) { #first iteration, cant upload to seg yet
-				my $e_now_wh = $e_today_wh - $e_last_wh;
-		
-				my $seg_site_id = $config->seg_site_id;
-				my $seg_device = $config->seg_device;
-				my $seg_power_stream = $config->seg_power_stream;
-				my $seg_energy_stream = $config->seg_energy_stream;
-				my $seg_api_url = $config->seg_api_url;
+            if($inverters{$inverter}{"response_timeout_count"} == 1) {
+                pmu_log($inverters{$inverter}{"serial"}." lost contact with inverter, forgetting inverter");
+                # forget about the inverter
+                delete $inverters{$inverter};
 
-				$curl_data = "(node $seg_device ? ($seg_power_stream $pac) ($seg_energy_stream $e_now_wh))";
-				my $cmd = `curl -s -d "data_post=(site $seg_site_id $curl_data)" $seg_api_url 2>&1 `;
-				chomp($cmd);
-				pmu_log("Uploading to smartenergygroups.com (power: $pac, energy: $e_now_wh), response: $cmd");
-			}
+                if($config->web_server_enabled) {
+                    write_web_json();
+                }
 
-			$e_last_wh = $e_today_wh;
-		}
-	}
+                # force a reconnect to the inverter(s) - there may be no online inverter(s) now
+                $sock = 0;
+            }
+
+            next;
+        }
+    }
 
 	$last_min = $min;
 
@@ -690,10 +737,11 @@ while (TRUE) {
 	
 }
 
+pmu_log("Main loop ended - about to exit - why?");
 
-if($config->options_communication_method == "eth2ser") {
+if($config->options_communication_method eq "eth2ser") {
 	close $sock;
-} elsif($config->options_communication_method == "serial") {
+} elsif($config->options_communication_method eq "serial") {
 	$sock->close;
 }
 
