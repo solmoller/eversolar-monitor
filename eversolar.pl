@@ -2,7 +2,10 @@
 #
 # Eversolar inverter data logger
 # - Based on Steve Cliffe's <steve@sjcnet.id.au> Eversolar PMU logger script (http://www.sjcnet.id.au/computers/eversolar-inverter-monitoring-with-linux)
-# - Tested with Eversolar TL1500AS Inverter connected to an ethernet to serial converter
+# - Tested and known to work with the following inverters:
+# -- TL1500AS Inverter connected to an ethernet to serial converter
+# -- TL2000 (multiple) connected to a Raspberry Pi
+# -- TL3000 (multiple) connected to a Raspberry Pi
 #
 # Kayne Richens <kayno@kayno.net>
 #
@@ -724,10 +727,11 @@ while(1) {
                 }
 
                 # force a reconnect to the inverter(s) - there may be no online inverter(s) now
-                $sock = 0;
+                # $sock = 0;
             }
 
-            next;
+            # break out of foreach($inverters... and go to start of main loop
+            last;
         }
     }
 

@@ -43,8 +43,9 @@
 	
 				var inverter_count = 0;
 				$.getJSON("/inverter-data", function(data) {
+                    $("#data").html('');
 					$.each(data, function(inverter_id, inverter) {
-						$("#data").html('\
+						$("#data").append('\
 <div class="ui-widget ui-widget-content inverter">\
 	<div class="ui-widget ui-widget-content ui-state-highlight inverter_heading">'+inverter.id_string+'</div>\
 	<div class="inverter_content">\
