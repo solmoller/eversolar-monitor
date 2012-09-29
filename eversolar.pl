@@ -6,6 +6,7 @@
 # -- TL1500AS Inverter connected to an ethernet to serial converter
 # -- TL2000 (multiple) connected to a Raspberry Pi
 # -- TL3000 (multiple) connected to a Raspberry Pi
+# - Supports upload of data to pvoutput.org. Please consider joining the "Eversolar perl loggers" team if you use this script - http://pvoutput.org/ladder.jsp?tid=485
 #
 # Kayne Richens <kayno@kayno.net>
 #
