@@ -2,7 +2,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
 <head>
-	<title>Eversolar inverter monitor</title>
+	<title>Eversolar inverters Monitor</title>
 
 	<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/themes/start/jquery-ui.css" type="text/css" media="screen" />
 
@@ -13,7 +13,8 @@
 		#page-content { padding: 10px; }
 		#log { clear: left; }
 		#log_data { padding: 3px; height: 200px; overflow: scroll; margin: 0; }
-		.inverter { margin: 0 10px 10px 0; width: 370px; float: left; }
+		.headline { margin: 0 10px 10px 0; width: 780px; float: left; }
+		.inverter { margin: 0 10px 10px 0; width: 377px; float: left; }
 		.inverter td { width: 50%; }
 		.inverter_heading, .inverter_content { padding: 5px; }
 		.inverter_heading { font-weight: bold; }
@@ -40,20 +41,19 @@
 		
 			function update_page() {
 				$("#log_data").load("/log");
-	
 				var inverter_count = 0;
 				$.getJSON("/inverter-data", function(data) {
                     $("#data").html('');
 					$.each(data, function(inverter_id, inverter) {
 						$("#data").append('\
-<div class="ui-widget ui-widget-content inverter">\
+        <div class="ui-widget ui-widget-content inverter">\
 	<div class="ui-widget ui-widget-content ui-state-highlight inverter_heading">'+inverter.id_string+'</div>\
 	<div class="inverter_content">\
 		<div>\
-			<div style="color: darkgreen; font-size: 36pt; font-weight: bold; float: right;">'+inverter.data.pac+'<span style="font-size: 14pt;">W</span></div>\
-			<div style="color: darkgreen; font-size: 14pt; font-weight: bold; padding-top: 6px;">Power<br />right now</div>\
+					<div style="color: darkgreen; font-size: 36pt; font-weight: bold; float: right;">'+inverter.data.pac+'<span style="font-size: 14pt;">W</span></div>\
+					<div style="color: darkgreen; font-size: 14pt; font-weight: bold; padding-top: 6px;">Power<br />right now</div>\
 		</div>\
-		<div style="clear: right;">\
+			<div style="clear: right;">\
 			<div style="color: darkblue; font-size: 26pt; font-weight: bold; float: right;">'+inverter.data.e_today+'<span style="font-size: 12pt;">kWh</span></div>\
 			<div style="color: darkblue; font-size: 12pt; font-weight: bold; padding-top: 6px;">Total energy<br />today</div>\
 		</div>\
@@ -88,12 +88,21 @@
 	</div>\
 </div>\
 ');
+
 						inverter_count++;
+						
+						if(inverter_count == 2) {
+						$("#data").append('<h2 class="inverter"><div style="color: darkgreen; font-size: 16pt; font-weight: bold; float: center;">Combined Power Right Now<br />'+inverter.data.total_power+' W<br></div></h2>');
+						$("#data").append('<h2 class="inverter"><div style="color: darkblue; font-size: 16pt; font-weight: bold; float: center;">Combined Energy Today<br />'+inverter.data.total_daykwh+' kWh</div></h2>');
+						}
 					});
+					
+				
 
 					if(!inverter_count) {
 						$("#data").html('<h2 class="inverter">No inverters connected</h2>');
 					}
+
 				});
 		
 				setTimeout(update_page, "300000");
@@ -105,10 +114,9 @@
 </head>
 <body>
 	<div class="ui-widget ui-widget-content">
-		<h1 class="ui-widget ui-widget-header">Eversolar inverter monitor</h1>
+		<h1 class="ui-widget ui-widget-header">Eversolar inverters Monitor</h1>
 		<div id="page-content">
 			<div id="data"></div>
-
 			<div id="log" class="ui-widget ui-widget-content">
 				<div class="ui-widget ui-widget-content ui-state-highlight inverter_heading">
 					<div style="font-size: 60%; margin-top: 2px; float: right;">Scroll to bottom to load more</div>
