@@ -50,12 +50,12 @@
 #    - fixed ripple on pvoutput with more inverters due to global min in pmu_log - hat tip leifnel
 #    - fixed temperature bug on negative centigrades - leifnel 
 #    - faster connections from  multiple inverters, as we are polling aggresively if no inverters are connected
-#    - It's not possible to specify an ini file from command line - Mads Lie Jensen
+#    - It's now possible to specify an ini file from command line - Mads Lie Jensen
 #    - Moved web server back into mail pl file to encompass the ini file specified from command line
 #    - several minor changes, cleaning up code 
 #    - fixed issue with max production today
 #    - stopped deleting the webfile when last inverter shut down, effectively enabling the webpage after inverter shut down
-#    - Added severity to loging, and only writes to logfile if debugging is set sufficiently high
+#    - Added severity to logging, and only writes to logfile if debugging is set sufficiently high
 #      Severity 1 is high severity, severity 3 is an informal message, setting debug to 3 creates a very long logfile, and slows web interface with lots of unimportant messages
 #
 #
@@ -955,11 +955,6 @@ while(1) {
                      # export min_day.js file
 
 
-		      # File structure for daily data:
-                      # one inverter and no strings attached:
-                      #   m[mi++]=„08.05.12 15:40:00|1714;867;17887;369“
-                      #   m[mi++]=„08.05.12 15:35:00|873;488;17746;350„
-                      #   m[mi++]=„08.05.12 15:30:00|724;409;17676;357“
 		      #  encoding = datetime | PAC in W | PDC in W| daily production up to now in Wh| UDC in V	
 
                       # Anlage mit zwei WR, 1.WR 3 Strings, 2.WR keine Strings mit WR Innentemperatur:
@@ -985,13 +980,11 @@ while(1) {
                        foreach $inverter (sort (keys(%inverters))) {
                          if($config->options_strings == 1) {
                              my $pdc1 = $inverters{$inverter}{"data"}{"ipv"}*$inverters{$inverter}{"data"}{"vpv"};
- #                            $update= $update . sprintf("|%d;%d;%d;%d",$inverters{$inverter}{"data"}{"pac"}, $inverters{$inverter}{"data"}{"e_today"}*1000,$inverters{$inverter}{"data"}{"vpv"},$inverters{$inverter}{"data"}{"temp"});
                              $update= $update . sprintf("|%d;%d;%d;%d;%d",$inverters{$inverter}{"data"}{"pac"}, $pdc1,$inverters{$inverter}{"data"}{"e_today"}*1000,$inverters{$inverter}{"data"}{"vpv"},$inverters{$inverter}{"data"}{"temp"});
                             }else
                             { # two strings
                              my $pdc1 = $inverters{$inverter}{"data"}{"ipv"}*$inverters{$inverter}{"data"}{"vpv"};
                              my $pdc2 = $inverters{$inverter}{"data"}{"ipv2"}*$inverters{$inverter}{"data"}{"vpv2"};
-#                             $update= $update . sprintf("|%d;%d;%d;%d;%d;%d;%d",$inverters{$inverter}{"data"}{"pac"}, $pdc1,$pdc2,$inverters{$inverter}{"data"}{"e_today"}*1000,$inverters{$inverter}{"data"}{"vpv"},$inverters{$inverter}{"data"}{"vpv2"},$inverters{$inverter}{"data"}{"temp"});
                              $update= $update . sprintf("|%d;%d;%d;%d;%d;%d;%d",$inverters{$inverter}{"data"}{"pac"}, $pdc1,$pdc2,$inverters{$inverter}{"data"}{"e_today"}*1000,$inverters{$inverter}{"data"}{"vpv"},$inverters{$inverter}{"data"}{"vpv2"},$inverters{$inverter}{"data"}{"temp"});
                             
                             }
@@ -1023,6 +1016,8 @@ while(1) {
                      # debug     print   $update;
 
 			 # write the string to the js file
+
+                      pmu_log("Severity 3, uploading to pv-log.com, data: $update");
 
                      unless (-e 'min_day.js')
                        {
