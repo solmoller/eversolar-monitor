@@ -57,6 +57,9 @@
 #    - stopped deleting the webfile when last inverter shut down, effectively enabling the webpage after inverter shut down
 #    - Added severity to logging, and only writes to logfile if debugging is set sufficiently high
 #      Severity 1 is high severity, severity 3 is an informal message, setting debug to 3 creates a very long logfile, and slows web interface with lots of unimportant messages
+# Version 0.13 - April 21 2013  by Henrik Jørgensen
+#    - Now even faster connect, as it picks out serial numbers from database for immediate connection to inverters - Morten Friis
+#    - A few minor bugfixes
 #
 #
 # Eversolar communications packet definition:
@@ -484,7 +487,7 @@ sub serial_connect {
 }
 
 ##
-## send the re-register packet to inverters 3 times (happens after initial connect)
+## send the re-register packet to inverters 8 times (happens after initial connect)
 ##
 
 sub re_register_inverters {
@@ -555,7 +558,56 @@ sub register_inverter {
     }
 }
 
-
+##
+## Try to register known inverter
+##
+ 
+sub register_known_inverter {
+              my $serial_number = shift;
+        pmu_log("Severity 2: Try to register known serial number: $serial_number");
+ 
+        # send register address (serial number followed by 1 byte address we allocate to inverter)
+        $serial_num_response = pack("A*", $serial_number);
+        my @register_address = unpack("C*", $serial_num_response);
+        push(@register_address, $next_inverter_address);
+        $address_response = send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"SEND_REGISTER_ADDRESS"}, \@register_address);
+        if($address_response) {
+            # check register acknowledgement
+            my $len = length($address_response);
+            my $register_acknowledgement = unpack("C", $address_response);
+            if($register_acknowledgement == 06) {
+                pmu_log("Severity 1:Inverter $serial_number acknowledged registration");
+ 
+                # request inverter ID 
+                $inverter_id_response = send_request($next_inverter_address, $CTRL_FUNC_CODES{"READ"}{"QUERY_INVERTER_ID"});
+                if($inverter_id_response) {
+                    my $len = length($inverter_id_response);
+                    my $inverter_id = unpack("A*", $inverter_id_response);
+                    pmu_log("Severity 1: Connected to inverter: $inverter_id");
+ 
+                    # remember this inverter
+                    $timestamp = get_timestamp();
+                    $inverters{$next_inverter_address}{"id_string"} = $inverter_id;
+                    $inverters{$next_inverter_address}{"serial"} = $serial_number;
+                    $inverters{$next_inverter_address}{"connected"} = $timestamp;
+                    $inverters{$next_inverter_address}{"max"} = {
+                        "pac" => {
+                            "watts" => 0,
+                            "timestamp" => $timestamp
+                        }
+                    };
+ 
+                    $next_inverter_address++;
+                } else {
+                    pmu_log("Severity 2: No response to 'query inverter id' request for inverter $serial_number");
+                }
+            } else {
+                pmu_log("Severity 1: Inverter register acknowledgement incorrect for inverter $serial_number. Expected 06, received $register_acknowledgement");
+            }
+        } else {
+            pmu_log("Severity 2: No response to 'send register address' request for inverter $serial_number");
+        }
+}
 ##
 ## Write a log file entry
 ##
@@ -747,7 +799,7 @@ if($config->web_server_enabled) {
 ##
 ##
 ###############################################################################
-
+ 
 while(1) {
 	$timestamp = get_timestamp();
 
@@ -760,6 +812,18 @@ while(1) {
 
 		if(!$sock) {
                  inverter_connect();
+                 sleep 10;
+                  my $sth = $dbh->prepare("select distinct serial_number from inverter limit 10");
+                  $sth->execute();
+                  my $row;
+                  while ($row = $sth->fetchrow_arrayref()) {
+                 pmu_log("Severity 2: got serial @$row[0] from database");
+                 register_known_inverter( @$row[0]);
+                 sleep 10;
+
+                      }
+
+                  $sth->finish();
                }
 	
 #aggresive polling when no inverters connected
@@ -781,7 +845,6 @@ while(1) {
          $combined_daykwh = 0;
 	foreach $inverter (keys(%inverters)) {
 		$response = send_request($inverter, $CTRL_FUNC_CODES{"READ"}{"QUERY_NORMAL_INFO"});
-
         if($response) {
             # good response - reset response_timeout_count
             $inverters{$inverter}{"response_timeout_count"} = 0;
@@ -796,8 +859,10 @@ while(1) {
             if ($data[$DATA_BYTES{'TEMP'}]>=0x8000) {$data[$DATA_BYTES{'TEMP'}]-=0x10000;}  # Temperature is signed, -0.1 = 0xFFFF
             my $temp = $data[$DATA_BYTES{'TEMP'}]/10;
             my $volts = $data[$DATA_BYTES{'VAC'}]/10;
+
             $combined_power = $combined_power +$data[$DATA_BYTES{'PAC'}];
 	     $combined_daykwh = $combined_daykwh +$data[$DATA_BYTES{'E_TODAY'}]/100;
+
             pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." output: $pac W, Total: $e_total kWh, Today: $e_today_kwh kWh");
 
 						
@@ -816,9 +881,9 @@ while(1) {
                 "impedance" 	=> $data[$DATA_BYTES{'IMPEDANCE'}],
                 "hours_up" 	=> $data[$DATA_BYTES{'HOURS_UP'}],
                 "op_mode" 	=> $data[$DATA_BYTES{'OP_MODE'}],
-                "temp"	 	=> $data[$DATA_BYTES{'TEMP'}]/10,
+                "temp"	 	=> $temp,
                 "total_power"	=> $combined_power,
-                "total_daykwh"	=> $combined_daykwh
+                "total_daykwh"	=> $combined_daykwh 
             };
 
             # store in db
@@ -1064,7 +1129,7 @@ while(1) {
             pmu_log("Severity 2, ".$inverters{$inverter}{"serial"}." lost contact with inverter (".$inverters{$inverter}{"response_timeout_count"}." time(s))");
 
             if($inverters{$inverter}{"response_timeout_count"} == 3) {
-                pmu_log("Severity 2, ".$inverters{$inverter}{"serial"}." lost contact with inverter, forgetting inverter");
+                pmu_log("Severity 1, ".$inverters{$inverter}{"serial"}." lost contact with inverter, forgetting inverter");
                 # forget about the inverter
                 delete $inverters{$inverter};
 
@@ -1075,11 +1140,17 @@ while(1) {
                               print "cleaning up after pvlog - deleting min_day.js file";
                               unlink ('min_day.js');
                               unlink ('pvlogtemp');
-
- 
                                 } 
 			}
 
+                # Delete the log file monthly to prevent the solution from filling the disk
+                # this also keeps the web page responsive
+                 if($mday==1 && keys(%inverters)==0 && $hour ==1)
+                   {
+                       unlink ($config->options_log_file);
+
+
+                   }
 # Old version deleted webfile at the end of day - request to keep it so it's possible to read what was produced after shutdown
 #                if($config->web_server_enabled) {
 #                    write_web_json();
