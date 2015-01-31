@@ -45,7 +45,7 @@
 #
 # Version 0.11 - March 28 2013  by Claus Stenager
 #    - added summary of more inverters, requires change in index.html
-# Version 0.12 - April 21 2013  by Henrik Jørgensen
+# Version 0.12 - April 21 2013  by Henrik JÃ¸rgensen
 #    - added output to pv-log.com
 #    - fixed ripple on pvoutput with more inverters due to global min in pmu_log - hat tip leifnel
 #    - fixed temperature bug on negative centigrades - leifnel 
@@ -57,7 +57,7 @@
 #    - stopped deleting the webfile when last inverter shut down, effectively enabling the webpage after inverter shut down
 #    - Added severity to logging, and only writes to logfile if debugging is set sufficiently high
 #      Severity 1 is high severity, severity 3 is an informal message, setting debug to 3 creates a very long logfile, and slows web interface with lots of unimportant messages
-# Version 0.13 - April 21 2013  by Henrik Jørgensen
+# Version 0.13 - April 21 2013  by Henrik JÃ¸rgensen
 #    - Now even faster connect, as it picks out serial numbers from database for immediate connection to inverters - Morten Friis
 #    - A few minor bugfixes
 #
@@ -190,7 +190,7 @@ if($config->options_strings == 1) {
         "FREQUENCY"	=> 8,
         "PAC"		=> 9,
         "NA_0"		=> 10,
-        "NA_1"		=> 11,
+        "NA_1"		=> 11, # NA_1 is actually upper bytes of total production
         "E_TOTAL"	=> 12,
         "NA_2"		=> 13,
         "HOURS_UP"	=> 14,
@@ -854,7 +854,7 @@ while(1) {
             
             my $e_today_kwh = $data[$DATA_BYTES{'E_TODAY'}]/100;
             my $e_today_wh = $e_today_kwh * 1000;
-            my $e_total = $data[$DATA_BYTES{'E_TOTAL'}]/10;
+            my $e_total = $data[$DATA_BYTES{'E_TOTAL'}]/10 +$data[$DATA_BYTES{'NA_1'}]*65535/10; # NA_1 is actually upper bytes of total production
             my $pac = $data[$DATA_BYTES{'PAC'}];
             if ($data[$DATA_BYTES{'TEMP'}]>=0x8000) {$data[$DATA_BYTES{'TEMP'}]-=0x10000;}  # Temperature is signed, -0.1 = 0xFFFF
             my $temp = $data[$DATA_BYTES{'TEMP'}]/10;
@@ -1023,14 +1023,14 @@ while(1) {
 		      #  encoding = datetime | PAC in W | PDC in W| daily production up to now in Wh| UDC in V	
 
                       # Anlage mit zwei WR, 1.WR 3 Strings, 2.WR keine Strings mit WR Innentemperatur:
-                      #   m[mi++]=„07.05.12 15:15:00|904;372;346;376;16656;403;406;404|495;532;9234;321;55“
-                      #   m[mi++]=„07.05.12 15:10:00|1000;403;376;408;16581;397;406;400|544;582;9192;321;52„
-                      #   m[mi++]=„07.05.12 15:05:00|1088;435;408;439;16500;399;400;397|587;628;9147;321;53“
-                      # m[mi++]=„07.05.12 15:10:00	 |	 1000	 ;	 403	 ;	 376	 ;	 408	 ;	 16581	 ;	 397	 ;	 406	 ;	 400	 |	 544	 ;	 582	 ;	 9192	 ;	 321	 ;	 52	 “
+                      #   m[mi++]=Â„07.05.12 15:15:00|904;372;346;376;16656;403;406;404|495;532;9234;321;55Â“
+                      #   m[mi++]=Â„07.05.12 15:10:00|1000;403;376;408;16581;397;406;400|544;582;9192;321;52Â„
+                      #   m[mi++]=Â„07.05.12 15:05:00|1088;435;408;439;16500;399;400;397|587;628;9147;321;53Â“
+                      # m[mi++]=Â„07.05.12 15:10:00	 |	 1000	 ;	 403	 ;	 376	 ;	 408	 ;	 16581	 ;	 397	 ;	 406	 ;	 400	 |	 544	 ;	 582	 ;	 9192	 ;	 321	 ;	 52	 Â“
                       # Kennung, Datum, Uhrzeit | PAC WR 1 in W| PDC String 1 WR 1 in W | PDC String 2 WR 1 in W| PDC String 3 WR 1 in W		 Tages-
                       # ertrag WR 1 in Wh		 UDC String 1 WR 1 in V		 UDC String 2 WR 1 in V		 UDC String 3 WR 1 in V		 PAC WR 2 in W		 PDC WR 2 in W		 Tages-
                       # ertrag WR 2 in Wh		 UDC WR 2 in V		 Tempe-
-                      # ratur WR 2 in °C	
+                      # ratur WR 2 in Â°C	
 
                       # So the 2 inverters basically share format, they are just divided by a simple |
 
