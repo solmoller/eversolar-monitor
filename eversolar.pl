@@ -60,6 +60,8 @@
 # Version 0.13 - April 21 2013  by Henrik Jørgensen
 #    - Now even faster connect, as it picks out serial numbers from database for immediate connection to inverters - Morten Friis
 #    - A few minor bugfixes
+# Version 0.14 - Jan 31st 2015  by Henrik Jørgensen
+#    - Updated to handle total production over 6553,5 KWh by reading and adding two further bytes of production data
 #
 #
 # Eversolar communications packet definition:
