@@ -1,9 +1,9 @@
-Most support is offered through the issues page here https://code.google.com/p/eversolar-monitor/issues/list
+Most support is offered through the issues page here https://github.com/solmoller/eversolar-monitor/issues
 
 
 # Introduction #
 
-You can use google (translate) for quite a lot of support, here are the main places outside this google code site
+You can use google (translate) for quite a lot of support, here are the main places outside this github site:
 
 
 # Details #
