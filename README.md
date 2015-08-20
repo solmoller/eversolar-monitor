@@ -52,4 +52,4 @@ We do try to test the software and it is working well for quite a number of peop
 
 You can consult the a wiki being for this project, with installation instructions and known good configurations, a downloadable image for raspberry is also available from there, https://github.com/solmoller/eversolar-monitor/blob/wiki/Introduction.md
 
-Here's a how the build-in web server may look like:[(http://i1360.photobucket.com/albums/r654/solmoller/Eversolar_zpscbcd1e33.jpg)]
+Here's a how the build-in web server may look like:[!(http://i1360.photobucket.com/albums/r654/solmoller/Eversolar_zpscbcd1e33.jpg)]
