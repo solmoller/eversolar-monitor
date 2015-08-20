@@ -27,7 +27,7 @@ The script reads the inverter data, stores it in a local sqlite database, then s
   * Upload to pv-log.com
   * Upload to smartenergygroups.com
 
-Please consult the wiki for further information here https://code.google.com/p/eversolar-monitor/wiki/Introduction
+Please consult the wiki for further information here https://github.com/solmoller/eversolar-monitor/blob/wiki/Introduction.md
 
 When you make the logger work, please join our pvoutput.org team _Eversolar perl loggers_ here http://pvoutput.org/listteam.jsp?tid=485 (you'll have to have the system running for 5 days to be allowed in)
 
@@ -50,6 +50,6 @@ We do try to test the software and it is working well for quite a number of peop
   * If you want to work on the software yourself, that too is welcome
   * Of course - I you have success, we would like to hear about that too
 
-You can consult the a wiki being for this project, with installation instructions and known good configurations, a downloadable image for raspberry is also available from there, https://code.google.com/p/eversolar-monitor/wiki/Introduction
+You can consult the a wiki being for this project, with installation instructions and known good configurations, a downloadable image for raspberry is also available from there, https://github.com/solmoller/eversolar-monitor/blob/wiki/Introduction.md
 
-Here's a how the build-in web server may look like:[http://i1360.photobucket.com/albums/r654/solmoller/Eversolar_zpscbcd1e33.jpg]
+Here's a how the build-in web server may look like:(http://i1360.photobucket.com/albums/r654/solmoller/Eversolar_zpscbcd1e33.jpg)
