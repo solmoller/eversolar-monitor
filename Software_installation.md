@@ -23,8 +23,9 @@ sudo apt-get install git-core build-essential libssl-dev
 
 
 # Fetch the code:
-
-git clone https://code.google.com/p/eversolar-monitor/
+git clone https://github.com/solmoller/eversolar-monitor
+If the above line is not working, use this one and log an issue here on github:
+(  git clone https://code.google.com/p/eversolar-monitor/)
 
 
 # Now you own a folder named eversolar-monitor
