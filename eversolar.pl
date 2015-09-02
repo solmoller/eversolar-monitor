@@ -511,8 +511,8 @@ sub re_register_inverters {
 sub register_inverter {
 	# request serial numbers
 	$serial_num_response = send_request(0x00, $CTRL_FUNC_CODES{"REGISTER"}{"OFFLINE_QUERY"});
-	if($serial_num_response) {
-		my $serial_number = unpack("A*", $serial_num_response);
+	if($serial_num_response) {  ##bugfix september 2nd 2015 for serial numbers containing null: Z* instead of A*:
+		my $serial_number = unpack("Z*", $serial_num_response);
 		pmu_log("Severity 1, Found serial number: $serial_number");
 
 		# send register address (serial number followed by 1 byte address we allocate to inverter)
