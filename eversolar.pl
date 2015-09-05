@@ -62,8 +62,8 @@
 #    - A few minor bugfixes
 # Version 0.14 - Jan 31st 2015  by Henrik Jørgensen
 #    - Updated to handle total production over 6553,5 KWh by reading and adding two further bytes of production data
-# Version 0.15 - Jan 31st 2015  by Henrik Jørgensen
-#    -  Bugfix september 2nd 2015 for serial numbers containing null
+# Version 0.15 - Sep 5th 2015  by Henrik Jørgensen
+#    -  Bugfix september 5th 2015 for serial numbers containing null
 #
 #
 # Eversolar communications packet definition:
