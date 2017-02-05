@@ -1,5 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!-- updated february 2017 to display 365 days production -->
 <html>
 <head>
 	<title>Eversolar inverters Monitor</title>
@@ -66,6 +67,7 @@
 				<tr><td>AC Voltage (VAC)</td><td style="text-align: right;">'+inverter.data.vac+'V<td></tr>\
 				<tr><td>AC Current (IAC)</td><td style="text-align: right;">'+inverter.data.iac+'A<td></tr>\
 				<tr><td>AC frequency</td><td style="text-align: right;">'+inverter.data.frequency+'Hz<td></tr>\
+				<tr><td>Last 365 days production</td><td style="text-align: right;">'+inverter.data.d365+'kWh<td></tr>\
 			</table>\
 			<table style="width: 50%; float: left; padding: 10px 0;">\
 				<tr><td>PV Voltage (VPV)</td><td style="text-align: right;">'+inverter.data.vpv+'V<td></tr>\
