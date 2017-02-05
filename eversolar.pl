@@ -39,9 +39,10 @@
 #	- added a sleep after inverter wakes and powers up the ethernet to serial converter, to allow it time before initiating the connection
 #	- fixed the log display in the web interface when the log is not stored in the default location
 # Version 0.10 - June 7 2012
-#    - added temp and volts (PV) to pvoutput.org upload
+#       - added temp and volts (PV) to pvoutput.org upload
 #
 #   Code move to http://code.google.com/p/eversolar-monitor/ - August 31 2012
+#
 #
 # Version 0.11 - March 28 2013  by Claus Stenager
 #    - added summary of more inverters, requires change in index.html
@@ -62,8 +63,14 @@
 #    - A few minor bugfixes
 # Version 0.14 - Jan 31st 2015  by Henrik Jørgensen
 #    - Updated to handle total production over 6553,5 KWh by reading and adding two further bytes of production data
+#
+#   Code move to https://github.com/solmoller/eversolar-monitor - August 20 2015
+#
 # Version 0.15 - Sep 5th 2015  by Henrik Jørgensen
 #    -  Bugfix september 5th 2015 for serial numbers containing null
+# Version 0.16 - January 21th 2017
+#       - added rolling 365 days production (not a year, as leap years will skew data)
+#
 #
 #
 # Eversolar communications packet definition:
@@ -757,17 +764,73 @@ $dbh->do("CREATE TABLE IF NOT EXISTS inverter (
     temp FLOAT
 )");
 
+###############################################################################
+##
+##
+##
+##	Database housekeeping
+##
+##
+##
+##
+##
+###############################################################################
+ 
+
 # vpv2 and ipv2 were added in later versions - fix any existing databases that don't have the columns
 print "Update old database version, or print 2 fail messages : \n";
 $dbh->do("ALTER TABLE inverter ADD COLUMN vpv2 FLOAT") or 1;
 $dbh->do("ALTER TABLE inverter ADD COLUMN ipv2 FLOAT") or 1;
 print "Done updating old database version.  \n";
 
+# since version 0.16 we add a second table with daily production levels including a rolling 365 day production volume
+# First we create the table, and then we populate it with historical data. This may take a little while first time around
+#
 
+$dbh->do("drop table daily");
 
+		pmu_log("Severity 3, Checking database");
+
+            my $stmt = " SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name='daily'";
+            my $sth = $dbh->prepare( $stmt );
+            my $rv = $sth->execute() or die $DBI::errstr;
+             if($rv < 0){
+               print $DBI::errstr;
+# ok, old tadabase without the daily table. 
+# create table and fill in data
+
+  	pmu_log("Severity 1, Updating database with daily table, making data export and stats easy");
+
+            my $stmt = " 		create table daily (
+	         serial_number varchar(128) not null,
+		 timestamp varchar(64) not null,
+	  	 e_today float,
+		 e_total float,
+		 unique (serial_number, timestamp)
+
+		)";
+            my $sth = $dbh->prepare( $stmt );
+            my $rv = $sth->execute() or die $DBI::errstr;
+
+            my $stmt = " insert into daily (serial_number, timestamp, e_today,e_total)
+		     select serial_number, date(timestamp),e_today, max(e_total) from inverter group by serial_number,date(timestamp) ";
+            my $sth = $dbh->prepare( $stmt );
+            my $rv = $sth->execute() or die $DBI::errstr;
+		
+
+             }   
+###############################################################################
 ##
-## web server
 ##
+##
+##	Web server
+##
+##
+##
+##
+##
+###############################################################################
+ 
 
 if($config->web_server_enabled) {
 #    require "web-server.pl";
@@ -813,6 +876,7 @@ while(1) {
 	# connect to inverter if not connected (!$sock)
    my  $combined_power = 0;
 	my  $combined_daykwh = 0;
+        my $d365 =0;
 
 		if(!$sock) {
                  inverter_connect();
@@ -865,9 +929,26 @@ while(1) {
             my $volts = $data[$DATA_BYTES{'VAC'}]/10;
 
             $combined_power = $combined_power +$data[$DATA_BYTES{'PAC'}];
-	     $combined_daykwh = $combined_daykwh +$data[$DATA_BYTES{'E_TODAY'}]/100;
+            $combined_daykwh = $combined_daykwh +$data[$DATA_BYTES{'E_TODAY'}]/100;
 
-            pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." output: $pac W, Total: $e_total kWh, Today: $e_today_kwh kWh");
+            $d365 = $e_total ;
+ # store in db
+print "select min(e_total) as mins from inverter where timestamp  >=   date('now', '-1 year') and serial_number = ".$inverters{$inverter}{"serial"};
+
+            my $stmt = "select min(e_total) as mins from inverter where timestamp  >=   date('now', '-365 day') and serial_number = '".$inverters{$inverter}{"serial"}."'";
+            my $sth = $dbh->prepare( $stmt );
+            my $rv = $sth->execute() or die $DBI::errstr;
+             if($rv < 0){
+               print $DBI::errstr;
+             }
+            while(my @row = $sth->fetchrow_array()) {
+                            print "etot = ". $row[0] . "\n";
+            $d365 = $e_total-$row[0] ;
+                }
+print "Operation done successfully\n";
+
+            pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." output: $pac W, Total: $e_total kWh, Today: $e_today_kwh kWh, 365 days : $d365 ");
+ # store in db
 
 						
             $inverters{$inverter}{"data"} = {
@@ -882,6 +963,7 @@ while(1) {
                 "vac" 		=> $data[$DATA_BYTES{'VAC'}]/10,
                 "iac" 		=> $data[$DATA_BYTES{'IAC'}]/10,
                 "frequency" 	=> $data[$DATA_BYTES{'FREQUENCY'}]/100,
+                "d365" 	        => $d365,
                 "impedance" 	=> $data[$DATA_BYTES{'IMPEDANCE'}],
                 "hours_up" 	=> $data[$DATA_BYTES{'HOURS_UP'}],
                 "op_mode" 	=> $data[$DATA_BYTES{'OP_MODE'}],
@@ -1027,10 +1109,10 @@ while(1) {
 		      #  encoding = datetime | PAC in W | PDC in W| daily production up to now in Wh| UDC in V	
 
                       # Anlage mit zwei WR, 1.WR 3 Strings, 2.WR keine Strings mit WR Innentemperatur:
-                      #   m[mi++]=07.05.12 15:15:00|904;372;346;376;16656;403;406;404|495;532;9234;321;55
-                      #   m[mi++]=07.05.12 15:10:00|1000;403;376;408;16581;397;406;400|544;582;9192;321;52
-                      #   m[mi++]=07.05.12 15:05:00|1088;435;408;439;16500;399;400;397|587;628;9147;321;53
-                      # m[mi++]=07.05.12 15:10:00	 |	 1000	 ;	 403	 ;	 376	 ;	 408	 ;	 16581	 ;	 397	 ;	 406	 ;	 400	 |	 544	 ;	 582	 ;	 9192	 ;	 321	 ;	 52	 
+                      #   m[mi++]=?07.05.12 15:15:00|904;372;346;376;16656;403;406;404|495;532;9234;321;55?
+                      #   m[mi++]=?07.05.12 15:10:00|1000;403;376;408;16581;397;406;400|544;582;9192;321;52?
+                      #   m[mi++]=?07.05.12 15:05:00|1088;435;408;439;16500;399;400;397|587;628;9147;321;53?
+                      # m[mi++]=?07.05.12 15:10:00	 |	 1000	 ;	 403	 ;	 376	 ;	 408	 ;	 16581	 ;	 397	 ;	 406	 ;	 400	 |	 544	 ;	 582	 ;	 9192	 ;	 321	 ;	 52	 ?
                       # Kennung, Datum, Uhrzeit | PAC WR 1 in W| PDC String 1 WR 1 in W | PDC String 2 WR 1 in W| PDC String 3 WR 1 in W		 Tages-
                       # ertrag WR 1 in Wh		 UDC String 1 WR 1 in V		 UDC String 2 WR 1 in V		 UDC String 3 WR 1 in V		 PAC WR 2 in W		 PDC WR 2 in W		 Tages-
                       # ertrag WR 2 in Wh		 UDC WR 2 in V		 Tempe-
@@ -1186,4 +1268,3 @@ if($config->options_communication_method eq "eth2ser") {
 } elsif($config->options_communication_method eq "serial") {
 	$sock->close;
 }
-
