@@ -48,14 +48,14 @@ And another example
 |8            |NC    | |5   |NC        | |
 
 
-### inverted polarity ###
+### Inverted polarity ###
 A few users have accidentally switched plus and minus on their cabling, strangely, the Eversolar inverters reply, but unsuccessfull:
-
+```
 Sending: aa 55 01 00 00 00 10 00 00 01 10
 received packet from inverter:
 **95 55 ff ff ff** df f7 ff fd d7 00 95 55 ff ff ff df
 ff ff fd df 00
-
+```
 The ff ff ff ff indicates the inverted polarity, they should be 00 00 00 00
 ## Termination ##
 There is debate on the necessity of termination, it appears not to be required with cable lengths under 10 meters
