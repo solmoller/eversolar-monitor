@@ -10,6 +10,11 @@ The typical setup is a Raspberry Pi with a USB to RS485/422 industrial serial po
 ## Cabling ##
 Cabling can be done through cutting open a network cable and rewire according to the manual - or use a network crimper tool for a sturdy, nice looking solution
 
+There are tools, that allow you to make the cabling work without custom tools, here is an example:
+![https://github.com/solmoller/eversolar-monitor/blob/wiki/rj45_wiring.jpg?raw=true](https://github.com/solmoller/eversolar-monitor/blob/wiki/rj45_wiring.jpg?raw=true)
+
+(Search for rj45 wiring block to find products like the one in the picture)
+
 Here's an example of how to connect an RS422 adapter
 
 |Eversolar pin|colour|Eversolar signal|Description|
