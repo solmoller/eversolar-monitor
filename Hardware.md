@@ -8,8 +8,6 @@ The typical setup is a Raspberry Pi with a USB to RS485/422 industrial serial po
 
 # Details #
 ## Cabling ##
-![https://dl.dropbox.com/u/13405211/EversolarDatalogger.jpg](https://dl.dropbox.com/u/13405211/EversolarDatalogger.jpg)
-
 Cabling can be done through cutting open a network cable and rewire according to the manual - or use a network crimper tool for a sturdy, nice looking solution
 
 Here's an example of how to connect an RS422 adapter
