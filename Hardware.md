@@ -62,7 +62,7 @@ There is debate on the necessity of termination, it appears not to be required w
 ## Known good computers ##
 Raspberry Pi version B. Versions A, A+, B+ and 2 should work fine. Regular PC's are also used
 
-## Known good USB to RS22 ports ##
+## Known good USB to RS422 ports ##
 USB-RS422-WE-LLLL-CU
 ## Known good USB to RS485 ports ##
 FTDI based ports
