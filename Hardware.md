@@ -13,13 +13,14 @@ The typical setup is a Raspberry Pi with a USB to RS485/422 industrial serial po
 Cabling can be done through cutting open a network cable and rewire according to the manual - or use a network crimper tool for a sturdy, nice looking solution
 
 Here's an example of how to connect an RS422 adapter
-|Eversolar pin|colour|Eversolar signal|Description|
+
+{|Eversolar pin|colour|Eversolar signal|Description|
 |:------------|:-----|:---------------|:----------|
 |1            |yellow|RXD+            |Yellow RXD+ Input Data + (B) Input|
 |2            |white |RXD-            |White RXD- Input Data – (A) Input|
 |3            |orange|TXD+            |Orange TXD+ Output Data + (B) Output|
 |4            |black |gnd             |Black GND GND Device ground supply pin|
-|6            |red   |TXD-            |Red TXD- Output Data – (A) Output|
+|6            |red   |TXD-            |Red TXD- Output Data – (A) Output|}
 
 
 You can interconnect additional Eversolar inverters with regular RJ45 network patch cables
