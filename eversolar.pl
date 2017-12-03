@@ -70,6 +70,9 @@
 #    -  Bugfix september 5th 2015 for serial numbers containing null
 # Version 0.16 - January 21th 2017
 #       - added rolling 365 days production (not a year, as leap years will skew data)
+# Version 0.17 - december 3rd 2017 by Henrik Jørgensen
+#       - updated rolling 365 days to update historical data more intelligently
+#       - added Domoticz integration
 #
 #
 #
@@ -787,14 +790,14 @@ print "Done updating old database version.  \n";
 # First we create the table, and then we populate it with historical data. This may take a little while first time around
 #
 
-$dbh->do("drop table daily");
-
-		pmu_log("Severity 3, Checking database");
+	pmu_log("Severity 3, Checking database");
 
             my $stmt = " SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name='daily'";
             my $sth = $dbh->prepare( $stmt );
             my $rv = $sth->execute() or die $DBI::errstr;
-             if($rv < 0){
+            my $count = $sth->fetchrow_array();
+
+             if($count < 1){
                print $DBI::errstr;
 # ok, old tadabase without the daily table. 
 # create table and fill in data
@@ -1052,7 +1055,28 @@ print "Operation done successfully\n";
                 pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." uploading to pvoutput.org, response: $cmd");
 
             }
+            ###############################################################################
+            ##
+            ##
+            ##
+            ##	Data to domoticz
+            ##
+            ##
+            ##
+            ###############################################################################
 
+
+        if($config->domoticz_enabled) {
+
+            my $domoticz_address = $config->domoticz_address;
+            my $domoticz_port = $config->domoticz_port;
+            my $domoticz_IDX = $config->domoticz_IDX;
+
+            my $cmd = `curl -s "http://$domoticz_address:$domoticz_port/json.htm?type=command&param=udevice&idx=$domoticz_IDX&nvalue=0&svalue=$pac;$e_today_wh" `;
+	chomp($cmd);
+            pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." uploading to domoticz, response: $cmd");
+
+        }
             ###############################################################################
             ##
             ##
