@@ -26,7 +26,7 @@ The script reads the inverter data, stores it in a local sqlite database, then s
   * Upload to pvoutput.org
   * Upload to pv-log.com
   * Upload to smartenergygroups.com
-  * Upload to Domotics
+  * Upload to Domoticz
   
 
 Please consult the wiki for further information here https://github.com/solmoller/eversolar-monitor/blob/wiki/Introduction.md
