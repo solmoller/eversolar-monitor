@@ -70,9 +70,9 @@
 #    -  Bugfix september 5th 2015 for serial numbers containing null
 # Version 0.16 - January 21th 2017
 #       - added rolling 365 days production (not a year, as leap years will skew data)
-# Version 0.17 - december 3rd 2017 by Henrik Jørgensen
+# Version 0.17 - december 3rd 2017 by Henrik Jørgensen and Reneke43
 #       - updated rolling 365 days to update historical data more intelligently
-#       - added Domoticz integration
+#       - added Domoticz integration suplied by Reneke43
 #
 #
 #
