@@ -28,5 +28,8 @@ How to setup the software stack required from scratch, you're IT savvy, if this 
 ## [Other\_sources\_of\_information](Other_sources_of_information.md) ##
 Links to downloadable images, documentation, support threads
 
+## [Usage, data extraction](Usage.md) ##
+How to extract data easily from the database
+
 ## [Feedback](Feedback.md) ##
 A place to let other people know if got the system working.
