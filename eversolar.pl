@@ -72,8 +72,9 @@
 #       - added rolling 365 days production (not a year, as leap years will skew data)
 # Version 0.17 - december 3rd 2017 by Henrik Jørgensen and Reneke43
 #       - updated rolling 365 days to update historical data more intelligently
-#       - added Domoticz integration suplied by Reneke43
-#
+#       - added Domoticz integration supplied by Reneke43
+# Version 0.171 - February 3rd 2017 by Henrik Jørgensen and Ctenberge
+#       - fixed comment bug in Domoticz integration 
 #
 #
 # Eversolar communications packet definition:
@@ -1072,7 +1073,7 @@ print "Operation done successfully\n";
             my $domoticz_port = $config->domoticz_port;
             my $domoticz_IDX = $config->domoticz_IDX;
 
-            my $cmd = `curl -s "http://$domoticz_address:$domoticz_port/json.htm?type=command&param=udevice&idx=$domoticz_IDX&nvalue=0&svalue=$pac;$e_today_wh" `;
+            my $cmd = curl -s "http://$domoticz_address:$domoticz_port/json.htm?type=command&param=udevice&idx=$domoticz_IDX&nvalue=0&svalue=$pac;$e_today_wh" ;
 	chomp($cmd);
             pmu_log("Severity 3, ".$inverters{$inverter}{"serial"}." uploading to domoticz, response: $cmd");
 
