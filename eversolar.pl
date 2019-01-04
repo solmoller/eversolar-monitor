@@ -945,9 +945,18 @@ while(1) {
             my $temp = $data[$DATA_BYTES{'TEMP'}]/10;
             my $volts = $data[$DATA_BYTES{'VAC'}]/10;
             my $dc_volt = $data[$DATA_BYTES{'VPV'}]/10,
-        	my $dc_imp = $data[$DATA_BYTES{'IPV'}]/10,
+            my $dc_imp = $data[$DATA_BYTES{'IPV'}]/10,
             my $ac_volt = $data[$DATA_BYTES{'VAC'}]/10,
             my $ac_imp = $data[$DATA_BYTES{'IAC'}]/10,
+            my $op_hours = $data[$DATA_BYTES{'HOURS_UP'}],
+            my $frequency = $data[$DATA_BYTES{'FREQUENCY'}]/100;
+
+            # Dual string metrics
+            if($config->options_strings == 2) {
+              my $dc_imp2 = $data[$DATA_BYTES{'IPV2'}]/10;
+              my $dc_volt2 = $data[$DATA_BYTES{'VPV2'}]/10;
+            }
+
 
             $combined_power = $combined_power +$data[$DATA_BYTES{'PAC'}];
             $combined_daykwh = $combined_daykwh +$data[$DATA_BYTES{'E_TODAY'}]/100;
@@ -1120,7 +1129,11 @@ print "Operation done successfully\n";
             my $influxdb_dbname = $config->influxdb_dbname;
             my $influxdb_panelname = $config->influxdb_panelname;
             my $time = time() * 1000000000;
-        	my $cmd = `curl -s -i -XPOST "http://$influxdb_address:$influxdb_port/write?db=$influxdb_dbname" --data-binary "usage,panel=$influxdb_panelname ac_imp=$ac_imp,ac_volts=$ac_volt,dc_imp=$dc_imp,dc_volts=$dc_volt,power=$pac,temp=$temp,total=$e_total,totaltoday=$e_today_kwh $time"`;
+                if($config->options_strings == 1) {
+                  my $cmd = `curl -s -i -XPOST "http://$influxdb_address:$influxdb_port/write?db=$influxdb_dbname" --data-binary "usage,panel=$influxdb_panelname ac_imp=$ac_imp,ac_volts=$ac_volt,dc_imp=$dc_imp,dc_volts=$dc_volt,power=$pac,temp=$temp,total=$e_total,totaltoday=$e_today_kwh $time"`;
+                } else {
+        	  my $cmd = `curl -s -i -XPOST "http://$influxdb_address:$influxdb_port/write?db=$influxdb_dbname" --data-binary "usage,panel=$influxdb_panelname ac_imp=$ac_imp,ac_volts=$ac_volt,dc_imp=$dc_imp,dc_imp2=$dc_imp2,dc_volts=$dc_volt,dc_volts2=$dc_volt2,power=$pac,temp=$temp,total=$e_total,totaltoday=$e_today_kwh,frequency=$frequency,operating_hours=$op_hours $time"`;
+                }
 
 			chomp($cmd);
 
