@@ -952,11 +952,8 @@ while(1) {
             my $frequency = $data[$DATA_BYTES{'FREQUENCY'}]/100;
 
             # Dual string metrics
-            if($config->options_strings == 2) {
-              my $dc_imp2 = $data[$DATA_BYTES{'IPV2'}]/10;
-              my $dc_volt2 = $data[$DATA_BYTES{'VPV2'}]/10;
-            }
-
+            my $dc_imp2 = $data[$DATA_BYTES{'IPV2'}]/10;
+            my $dc_volt2 = $data[$DATA_BYTES{'VPV2'}]/10;
 
             $combined_power = $combined_power +$data[$DATA_BYTES{'PAC'}];
             $combined_daykwh = $combined_daykwh +$data[$DATA_BYTES{'E_TODAY'}]/100;
