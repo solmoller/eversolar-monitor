@@ -78,7 +78,7 @@ strings = 1      # number of PV panel strings (panels wired together) connected 
 
 **Communication\_method** is to be set, depending on what hardware you use to connect to the inverters
 
-**Strings** is one for Eversolar TL 2000 and below, it is 2 for TL 3000 and above. If you have a TL 3000 or above with just one string attached, **strings** is still to be set to 2. Newer Zeversolar 3000 may have changed firmware and require strings = 1
+**Strings** is one for Eversolar TL 2000 and below, it is 2 for TL 3000 and above. If you have a TL 3000 or above with just one string attached, **strings** is still to be set to 2. Newer Zeversolar 3000 may have changed firmware and require strings = 1. ZL2000S is strangely strings = 2
 
 ```
 [eth2ser]				# communication_method must be set to "eth2ser" above for ethernet to serial devices
