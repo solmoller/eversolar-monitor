@@ -859,7 +859,7 @@ $dbh->do(
 ###############################################################################
 
 # vpv2 and ipv2 were added in later versions - fix any existing databases that don't have the columns
-print "Update old database version, or print 2 fail messages : \n";
+print "Update old database version, or print 2 fail messages (part 1) : \n";
 $dbh->do("ALTER TABLE inverter ADD COLUMN vpv2 FLOAT") or 1;
 $dbh->do("ALTER TABLE inverter ADD COLUMN ipv2 FLOAT") or 1;
 print "Done updating old database version.  \n";
@@ -903,7 +903,7 @@ if ( $count < 1 ) {
 }
 else {
     # pmax was added in later versions - fix any existing databases that don't have the columns
-    print "Update old daily database version, or print 2 fail messages : \n";
+    print "Update old daily database version, or print 2 fail messages (part 2) : \n";
     $dbh->do("ALTER TABLE daily ADD COLUMN pmax_today FLOAT") or 1;
     $dbh->do("ALTER TABLE daily ADD COLUMN pmax_time varchar(64)") or 1;
     print "Done updating old daily database version.  \n";
