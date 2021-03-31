@@ -26,6 +26,11 @@ serial_number    max(e_today)    date(timestamp)
 B882000A127D0011    6.69    28-10-2012
 B882000A127D0013    0.43    29-10-2012
 ```
+If you are looking for hourly productions, this SQL queryl extracts max_production from each inverter by hour:
+```
+select serial_number,max (e_total), strftime('%Y-%m-%dT%H:00:00.000', timestamp) from inverter group by serial_number ,strftime('%Y-%m-%dT%H:00:00.000', timestamp) 
+```
+
 
 If you don't have sqlite3 on your Raspberry Pi, then install it like this:
 
