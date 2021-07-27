@@ -1,6 +1,7 @@
 Here's how to setup your linux box for the perl software. This may work under Windows as well, please contact us, if you have success with that.
 
 Remember that there is a quick way: download the Raspberry Pi image, and modify the ini file as described on a separate page here [Setup\_from\_image\_file](Setup_from_image_file.md)
+That image is from 2016, and cannot be upgraded - it's fine in an isolated enviroment, and very easy to get access to. The below instruction is tested in 2021 and still valid:
 
 The below instructions do require some skills
 
@@ -40,20 +41,23 @@ If the above line is not working, use this one and log an issue here on github:
 sudo apt-get update
 sudo apt-get install libappconfig-perl
 sudo apt-get install gcc-4.7
-# (wait at least an hour)
+
 sudo apt-get install libdbi-perl 
 sudo apt-get install libjson-perl
 
 sudo apt-get install libhttp-server-simple-perl
 sudo apt-get install cpanminus
 sudo cpanm DBD::SQLite
+# (this one might take some time)
 
 # If you use a serial port:
 
-apt-get install libdevice-serialport-perl
+sudo apt-get install libdevice-serialport-perl
 #Serial ports have a tencency to hang the RPI inless you update it
 sudo apt-get install ca-certificates
-rpi-update
+
+
+# Removed 2021: sudo rpi-update as the software directly advises against use
 # reboot
 #And you’re ready to go - after modifying the .ini file start the script like this:
 
