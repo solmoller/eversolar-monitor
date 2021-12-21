@@ -88,7 +88,10 @@
 #       - Make aggressive polling for new inverters a little less aggressive by adding a delay when nothing is found 
 #       - Fixed a bug where webpage is not shown when config option database_log is off (fixes #43)
 #       - Make errors returned by upload to pvoutput and influxdb more visible in log
-#
+# Version 0.19 - Changes by nagydavid
+#       - 'sudo apt install -y mosquitto mosquitto-clients' has to be installed
+#       - Added MQTT functionalities.
+#       - Added MQTT Auto Diascovery for Home Assistant
 #
 # Eversolar communications packet definition:
 # 0xaa, 0x55, 	# header
@@ -143,6 +146,14 @@ $config->define("influxdb_address=s");
 $config->define("influxdb_port=s");
 $config->define("influxdb_dbname=s");
 $config->define("influxdb_panelname=s");
+$config->define("mqtt_enabled=s");
+$config->define("mqtt_inverter_model=s");               
+$config->define("mqtt_host=s");
+$config->define("mqtt_port=s");
+$config->define("mqtt_user=s");
+$config->define("mqtt_password=s");
+$config->define("mqtt_topic_prefix=s");
+$config->define("mqtt_ha_discovery=s");
 $config->define("seg_enabled=s");
 $config->define("seg_upload_interval_mins=s");
 $config->define("seg_site_id=s");
@@ -1244,6 +1255,206 @@ while (42) {
                     pmu_log("Severity 4: logged to influxdb. response: $cmd");
                 }
                 
+            }          
+            ###############################################################################
+            ##
+            ##
+            ##
+            ##    Data to MQTT (Home Assistant)
+            ##
+            ##
+            ##
+            ###############################################################################
+            if ( $config->mqtt_enabled ) {
+                pmu_log("Severity 3: MQTT Start");
+                #retrieve mqtt config info
+                my $mqtt_host           = $config->mqtt_host;                 
+                my $mqtt_port           = $config->mqtt_port;                        
+                my $mqtt_user           = $config->mqtt_user;                   
+                my $mqtt_password       = $config->mqtt_password;
+                my $mqtt_topic_prefix   = $config->mqtt_topic_prefix;
+                my $mqtt_inverter_model = $config->mqtt_inverter_model;
+
+
+                my $mqtt_serial = $inverters{$inverter}{'serial'};
+
+
+                my $cmd;
+                pmu_log("Severity 4: MQTT Config info is read");
+                # flatten out hash for easier looping during publishing
+                # my $log_json = encode_json $inverters{$inverter};
+                # pmu_log("Severity 4: $log_json");
+               
+                my %mqtt_data = (
+                    pac => $inverters{$inverter}{'data'}{'pac'},
+                    max_power_today => $inverters{$inverter}{'max'}{'pac'}{'watts'},
+                    d365 => $inverters{$inverter}{'data'}{'d365'},
+                    total_daykwh => $inverters{$inverter}{'data'}{'total_daykwh'},
+                    e_total => $inverters{$inverter}{'data'}{'e_total'},
+                    temp => $inverters{$inverter}{'data'}{'temp'},
+                    impedance => $inverters{$inverter}{'data'}{'impedance'},
+                    frequency => $inverters{$inverter}{'data'}{'frequency'},
+                    iac => $inverters{$inverter}{'data'}{'iac'},
+                    ipv => $inverters{$inverter}{'data'}{'ipv'},
+                    vac => $inverters{$inverter}{'data'}{'vac'},
+                    vpv => $inverters{$inverter}{'data'}{'vpv'},
+                    op_mode => $inverters{$inverter}{'data'}{'op_mode'},
+                    hours_up => $inverters{$inverter}{'data'}{'hours_up'},
+                    timestamp => $inverters{$inverter}{'data'}{'timestamp'},
+                    connected => $inverters{$inverter}{'connected'},
+                );   
+                pmu_log("Severity 4: MQTT inverter hash is flattened");
+
+                # Subroutine for Home Assistant Device/Entity configuration
+                sub ha_disc_config {
+                        my %config_data = (
+                            device => {
+                                identifiers => [
+                                    $mqtt_serial,
+                                    ],
+                                manufacturer => "Eversolar",
+                                model => $mqtt_inverter_model,
+                                name => "Solar Inverter"
+                            },
+                            state_topic => "$mqtt_topic_prefix/$mqtt_serial/$_[0]",
+                            unique_id => "$mqtt_serial\_$_[0]",
+                            state_class => "measurement",
+                        );
+
+                        if ( $_[0] eq "pac" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Solar Power Right Now";
+                            $config_data{'unit_of_measurement'} = "W";
+                            $config_data{'device_class'} = "power";
+
+                        } elsif ( $_[0] eq "max_power_today" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Maximum Solar Power Today";
+                            $config_data{'unit_of_measurement'} = "W";
+                            $config_data{'device_class'} = "power";
+
+                        } elsif ( $_[0] eq "d365" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Last 365 Days Production";
+                            $config_data{'unit_of_measurement'} = "kWh";
+                            $config_data{'device_class'} = "energy";
+
+                        } elsif ( $_[0] eq "total_daykwh" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Total Energy Today";
+                            $config_data{'unit_of_measurement'} = "kWh";
+                            $config_data{'device_class'} = "energy";
+
+                        } elsif ( $_[0] eq "e_total" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Total Energy Production";
+                            $config_data{'unit_of_measurement'} = "kWh";
+                            $config_data{'device_class'} = "energy";
+                            $config_data{"state_class"} = "total_increasing";
+
+                        } elsif ( $_[0] eq "temp" ){
+                            $config_data{'icon'} = "mdi:temperature-celsius";
+                            $config_data{'name'} = "Inverter Temperature";
+                            $config_data{'unit_of_measurement'} = "C";
+                            $config_data{'device_class'} = "temperature";
+
+                        } elsif ( $_[0] eq "impedance" ){
+                            $config_data{'icon'} = "mdi:omega";
+                            $config_data{'name'} = "Inverter Impedance";
+                            $config_data{'unit_of_measurement'} = "Ohm";
+
+                        } elsif ( $_[0] eq "frequency" ){
+                            $config_data{'icon'} = "mdi:sine-wave";
+                            $config_data{'name'} = "AC Frequency";
+                            $config_data{'unit_of_measurement'} = "Hz";
+                            $config_data{'device_class'} = "frequency";
+
+                        } elsif ( $_[0] eq "iac" ){
+                            $config_data{'icon'} = "mdi:current-ac";
+                            $config_data{'name'} = "AC Current";
+                            $config_data{'unit_of_measurement'} = "V";
+                            $config_data{'device_class'} = "current";
+
+                        } elsif ( $_[0] eq "ipv" ){
+                            $config_data{'icon'} = "mdi:current-ac";
+                            $config_data{'name'} = "PV Current";
+                            $config_data{'unit_of_measurement'} = "A";
+                            $config_data{'device_class'} = "current";
+
+                        } elsif ( $_[0] eq "vac" ){
+                            $config_data{'icon'} =  "mdi:sine-wave";
+                            $config_data{'name'} = "AC Voltage";
+                            $config_data{'unit_of_measurement'} = "V";
+                            $config_data{'device_class'} = "voltage";
+
+                        } elsif ( $_[0] eq "vpv" ){
+                            $config_data{'icon'} = "mdi:sine-wave";
+                            $config_data{'name'} = "PV Voltage";
+                            $config_data{'unit_of_measurement'} = "V";
+                            $config_data{'device_class'} = "voltage";
+
+                        } elsif ( $_[0] eq "op_mode" ){
+                            $config_data{'icon'} = "mdi:cog";
+                            $config_data{'name'} = "Operation Mode";
+
+                        } elsif ( $_[0] eq "hours_up" ){
+                            $config_data{'icon'} = "mdi:timer-cog";
+                            $config_data{'name'} = "Total Uptime";
+                            $config_data{'unit_of_measurement'} = "hours";
+                            $config_data{"state_class"} = "total_increasing";
+
+                        } elsif ( $_[0] eq "timestamp" ){
+                            $config_data{'icon'} =  "mdi:update";
+                            $config_data{'name'} = "Updated At";
+
+                        } elsif ( $_[0] eq "connected" ){
+                            $config_data{'icon'} = "mdi:connection";
+                            $config_data{'name'} = "Connected At";
+
+                        } else {
+                            print "$_[0] - No data passed, or hash is corrupted";
+                                               # Failure on writing to influxdb
+                            pmu_log("Severity 1: $_[0] - No data passed, or hash is corrupted");
+                        };
+
+                        return %config_data;
+                    }
+                    # Convert Hash to JSon string
+                    sub jsonify_config {
+                        my %config_hash = @_;
+                        my $config_json = encode_json \%config_hash;
+                        # Return our built discovery config
+                        return $config_json;
+                    }
+                #Publishing MQTT messages 
+                keys %mqtt_data;
+                while(my($k, $v) = each %mqtt_data)
+                {
+                    #Publishing Auto Discovery Messages for home assistant if enabled
+                    if( $config->mqtt_ha_discovery ) {
+                        my $config_send = jsonify_config(ha_disc_config("$k"));
+                        if ( $config->mqtt_password ){
+                            
+                            $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -u "$mqtt_user" -P "$mqtt_password" -q 0 -t 'homeassistant/sensor/$mqtt_topic_prefix/$mqtt_serial\_$k/config' -m '$config_send'`;
+                        } else {
+                            $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -q 0 -t 'homeassistant/sensor/$mqtt_topic_prefix/$mqtt_serial\_$k/config' -m '$config_send'`;
+                        }
+                        chomp $cmd;
+                        sleep 0.5;
+                        pmu_log("Severity 4: MQTT $k's HA configuration is published");
+                    }
+                    #Publishing Sensor Entity State Messages
+
+                    if ( $config->mqtt_password ){
+                        $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -u "$mqtt_user" -P "$mqtt_password" -q 1 -t '$mqtt_topic_prefix/$mqtt_serial/$k' -m '$v'`;
+                    } else {
+                        $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -q 1 -t '$mqtt_topic_prefix/$mqtt_serial/$k' -m '$v'`;
+                    }
+                    chomp $cmd;
+                    sleep 0.5;
+                    pmu_log("Severity 4: MQTT $k = $v is published");
+                }
+                pmu_log("Severity 1: Mqtt messages published");
             }
             ###############################################################################
             ##
