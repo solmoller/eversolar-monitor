@@ -150,6 +150,7 @@ $config->define("mqtt_enabled=s");
 $config->define("mqtt_inverter_model=s");               
 $config->define("mqtt_host=s");
 $config->define("mqtt_port=s");
+$config->define("mqtt_enable_pass=s");
 $config->define("mqtt_user=s");
 $config->define("mqtt_password=s");
 $config->define("mqtt_topic_prefix=s");
@@ -1280,7 +1281,7 @@ while (42) {
 
 
                 my $cmd;
-                pmu_log("Severity 4: MQTT Config info is read");
+                pmu_log("Severity 3: MQTT Config info is read");
                 # flatten out hash for easier looping during publishing
                 # my $log_json = encode_json $inverters{$inverter};
                 # pmu_log("Severity 4: $log_json");
@@ -1303,7 +1304,7 @@ while (42) {
                     timestamp => $inverters{$inverter}{'data'}{'timestamp'},
                     connected => $inverters{$inverter}{'connected'},
                 );   
-                pmu_log("Severity 4: MQTT inverter hash is flattened");
+                pmu_log("Severity 3: MQTT inverter hash is flattened");
 
                 # Subroutine for Home Assistant Device/Entity configuration
                 sub ha_disc_config {
@@ -1355,7 +1356,7 @@ while (42) {
                         } elsif ( $_[0] eq "temp" ){
                             $config_data{'icon'} = "mdi:temperature-celsius";
                             $config_data{'name'} = "Inverter Temperature";
-                            $config_data{'unit_of_measurement'} = "C";
+                            $config_data{'unit_of_measurement'} = "\xc2\xb0\x43";
                             $config_data{'device_class'} = "temperature";
 
                         } elsif ( $_[0] eq "impedance" ){
@@ -1372,7 +1373,7 @@ while (42) {
                         } elsif ( $_[0] eq "iac" ){
                             $config_data{'icon'} = "mdi:current-ac";
                             $config_data{'name'} = "AC Current";
-                            $config_data{'unit_of_measurement'} = "V";
+                            $config_data{'unit_of_measurement'} = "A";
                             $config_data{'device_class'} = "current";
 
                         } elsif ( $_[0] eq "ipv" ){
@@ -1433,7 +1434,7 @@ while (42) {
                     #Publishing Auto Discovery Messages for home assistant if enabled
                     if( $config->mqtt_ha_discovery ) {
                         my $config_send = jsonify_config(ha_disc_config("$k"));
-                        if ( $config->mqtt_password ){
+                        if ( $config->mqtt_enable_pass ){
                             
                             $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -u "$mqtt_user" -P "$mqtt_password" -q 0 -t 'homeassistant/sensor/$mqtt_topic_prefix/$mqtt_serial\_$k/config' -m '$config_send'`;
                         } else {
@@ -1441,20 +1442,20 @@ while (42) {
                         }
                         chomp $cmd;
                         sleep 0.5;
-                        pmu_log("Severity 4: MQTT $k's HA configuration is published");
+                        pmu_log("Severity 3: MQTT $k's HA configuration is published");
                     }
                     #Publishing Sensor Entity State Messages
 
-                    if ( $config->mqtt_password ){
+                    if ( $config->mqtt_enable_pass ){
                         $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -u "$mqtt_user" -P "$mqtt_password" -q 1 -t '$mqtt_topic_prefix/$mqtt_serial/$k' -m '$v'`;
                     } else {
                         $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -q 1 -t '$mqtt_topic_prefix/$mqtt_serial/$k' -m '$v'`;
                     }
                     chomp $cmd;
                     sleep 0.5;
-                    pmu_log("Severity 4: MQTT $k = $v is published");
+                    pmu_log("Severity 3: MQTT $k = $v is published");
                 }
-                pmu_log("Severity 1: Mqtt messages published");
+                pmu_log("Severity 3: Mqtt messages published");
             }
             ###############################################################################
             ##
