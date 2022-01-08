@@ -95,7 +95,7 @@
 #
 # Version 0.191 january 2022 - Changes by Henrik Jørgemsem
 #       - Changed naming of Home Assistant Entities, so they group nicely in HASS
-"
+#
 # Eversolar communications packet definition:
 # 0xaa, 0x55, 	# header
 # 0x00, 0x00, 	# source address
