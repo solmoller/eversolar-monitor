@@ -88,11 +88,14 @@
 #       - Make aggressive polling for new inverters a little less aggressive by adding a delay when nothing is found 
 #       - Fixed a bug where webpage is not shown when config option database_log is off (fixes #43)
 #       - Make errors returned by upload to pvoutput and influxdb more visible in log
-# Version 0.19 - Changes by nagydavid
+# Version 0.19 january 2022 - Changes by nagydavid
 #       - 'sudo apt install -y mosquitto mosquitto-clients' has to be installed
 #       - Added MQTT functionalities.
 #       - Added MQTT Auto Diascovery for Home Assistant
 #
+# Version 0.191 january 2022 - Changes by Henrik Jørgemsem
+#       - Changed naming of Home Assistant Entities, so they group nicely in HASS
+"
 # Eversolar communications packet definition:
 # 0xaa, 0x55, 	# header
 # 0x00, 0x00, 	# source address
@@ -1324,55 +1327,55 @@ while (42) {
 
                         if ( $_[0] eq "pac" ){
                             $config_data{'icon'} = "mdi:solar-power";
-                            $config_data{'name'} = "Solar Power Right Now";
+                            $config_data{'name'} = "PV Solar Power Right Now";
                             $config_data{'unit_of_measurement'} = "W";
                             $config_data{'device_class'} = "power";
 
                         } elsif ( $_[0] eq "max_power_today" ){
                             $config_data{'icon'} = "mdi:solar-power";
-                            $config_data{'name'} = "Maximum Solar Power Today";
+                            $config_data{'name'} = "PV Maximum Solar Power Today";
                             $config_data{'unit_of_measurement'} = "W";
                             $config_data{'device_class'} = "power";
 
                         } elsif ( $_[0] eq "d365" ){
                             $config_data{'icon'} = "mdi:solar-power";
-                            $config_data{'name'} = "Last 365 Days Production";
+                            $config_data{'name'} = "PV Last 365 Days Production";
                             $config_data{'unit_of_measurement'} = "kWh";
                             $config_data{'device_class'} = "energy";
 
                         } elsif ( $_[0] eq "total_daykwh" ){
                             $config_data{'icon'} = "mdi:solar-power";
-                            $config_data{'name'} = "Total Energy Today";
+                            $config_data{'name'} = "PV Total Energy Today";
                             $config_data{'unit_of_measurement'} = "kWh";
                             $config_data{'device_class'} = "energy";
 
                         } elsif ( $_[0] eq "e_total" ){
                             $config_data{'icon'} = "mdi:solar-power";
-                            $config_data{'name'} = "Total Energy Production";
+                            $config_data{'name'} = "PV Total Energy Production";
                             $config_data{'unit_of_measurement'} = "kWh";
                             $config_data{'device_class'} = "energy";
                             $config_data{"state_class"} = "total_increasing";
 
                         } elsif ( $_[0] eq "temp" ){
                             $config_data{'icon'} = "mdi:temperature-celsius";
-                            $config_data{'name'} = "Inverter Temperature";
+                            $config_data{'name'} = "PV Inverter Temperature";
                             $config_data{'unit_of_measurement'} = "\xc2\xb0\x43";
                             $config_data{'device_class'} = "temperature";
 
                         } elsif ( $_[0] eq "impedance" ){
                             $config_data{'icon'} = "mdi:omega";
-                            $config_data{'name'} = "Inverter Impedance";
+                            $config_data{'name'} = "PV Inverter Impedance";
                             $config_data{'unit_of_measurement'} = "Ohm";
 
                         } elsif ( $_[0] eq "frequency" ){
                             $config_data{'icon'} = "mdi:sine-wave";
-                            $config_data{'name'} = "AC Frequency";
+                            $config_data{'name'} = "PV AC Frequency";
                             $config_data{'unit_of_measurement'} = "Hz";
                             $config_data{'device_class'} = "frequency";
 
                         } elsif ( $_[0] eq "iac" ){
                             $config_data{'icon'} = "mdi:current-ac";
-                            $config_data{'name'} = "AC Current";
+                            $config_data{'name'} = "PV AC Current";
                             $config_data{'unit_of_measurement'} = "A";
                             $config_data{'device_class'} = "current";
 
@@ -1384,7 +1387,7 @@ while (42) {
 
                         } elsif ( $_[0] eq "vac" ){
                             $config_data{'icon'} =  "mdi:sine-wave";
-                            $config_data{'name'} = "AC Voltage";
+                            $config_data{'name'} = "PV AC Voltage";
                             $config_data{'unit_of_measurement'} = "V";
                             $config_data{'device_class'} = "voltage";
 
@@ -1396,21 +1399,21 @@ while (42) {
 
                         } elsif ( $_[0] eq "op_mode" ){
                             $config_data{'icon'} = "mdi:cog";
-                            $config_data{'name'} = "Operation Mode";
+                            $config_data{'name'} = "PV Operation Mode";
 
                         } elsif ( $_[0] eq "hours_up" ){
                             $config_data{'icon'} = "mdi:timer-cog";
-                            $config_data{'name'} = "Total Uptime";
+                            $config_data{'name'} = "PV Total Uptime";
                             $config_data{'unit_of_measurement'} = "hours";
                             $config_data{"state_class"} = "total_increasing";
 
                         } elsif ( $_[0] eq "timestamp" ){
                             $config_data{'icon'} =  "mdi:update";
-                            $config_data{'name'} = "Updated At";
+                            $config_data{'name'} = "PV Updated At";
 
                         } elsif ( $_[0] eq "connected" ){
                             $config_data{'icon'} = "mdi:connection";
-                            $config_data{'name'} = "Connected At";
+                            $config_data{'name'} = "PV Connected At";
 
                         } else {
                             print "$_[0] - No data passed, or hash is corrupted";
