@@ -27,6 +27,7 @@ The script reads the inverter data, stores it in a local sqlite database, then s
   * Upload to pv-log.com
   * Upload to smartenergygroups.com
   * Upload to Domoticz
+  * Integration to Home Assistant, HASS
   
 
 Please consult the wiki for further information here https://github.com/solmoller/eversolar-monitor/blob/wiki/Introduction.md
