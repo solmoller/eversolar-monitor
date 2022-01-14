@@ -114,6 +114,7 @@ use DBI;
 use Net::FTP;
 use File::Copy;
 use POSIX;
+use utf8;
 
 #use warnings;
 
@@ -1359,7 +1360,8 @@ while (42) {
                         } elsif ( $_[0] eq "temp" ){
                             $config_data{'icon'} = "mdi:temperature-celsius";
                             $config_data{'name'} = "PV Inverter Temperature";
-                            $config_data{'unit_of_measurement'} = "\xc2\xb0\x43";
+                            binmode(STDOUT, ":utf8");
+                            $config_data{'unit_of_measurement'} = "°C";
                             $config_data{'device_class'} = "temperature";
 
                         } elsif ( $_[0] eq "impedance" ){
