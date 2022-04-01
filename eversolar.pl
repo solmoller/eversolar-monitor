@@ -1412,11 +1412,12 @@ while (42) {
                         } elsif ( $_[0] eq "timestamp" ){
                             $config_data{'icon'} =  "mdi:update";
                             $config_data{'name'} = "PV Updated At";
-
+                            $config_data{'device_class'} = "timestamp";
+                            
                         } elsif ( $_[0] eq "connected" ){
                             $config_data{'icon'} = "mdi:connection";
                             $config_data{'name'} = "PV Connected At";
-
+                            $config_data{'device_class'} = "timestamp";
                         } else {
                             print "$_[0] - No data passed, or hash is corrupted";
                                                # Failure on writing to influxdb
@@ -1450,6 +1451,13 @@ while (42) {
                         pmu_log("Severity 3: MQTT $k's HA configuration is published");
                     }
                     #Publishing Sensor Entity State Messages
+                    my @ts_data = ("timestamp", "connected");
+                    if( grep( /$k/ , @ts_data ) ){
+                        my $tz = strftime("%z", localtime());
+                        my $tz_h = substr($tz, 0, -2);
+                        my $tz_m = substr($tz,-2);
+                        $v = "$v$tz_h:$tz_m";
+                    }
 
                     if ( $config->mqtt_enable_pass ){
                         $cmd = `mosquitto_pub -h $mqtt_host -p $mqtt_port -u "$mqtt_user" -P "$mqtt_password" -q 1 -t '$mqtt_topic_prefix/$mqtt_serial/$k' -m '$v'`;
