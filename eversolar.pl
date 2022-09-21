@@ -1291,7 +1291,7 @@ while (42) {
                 # pmu_log("Severity 4: $log_json");
                
                 my %mqtt_data = (
-					serial => $inverters{$inverter}{'serial'},
+                    serial => $inverters{$inverter}{'serial'},
                     pac => $inverters{$inverter}{'data'}{'pac'},
                     max_power_today => $inverters{$inverter}{'max'}{'pac'}{'watts'},
                     d365 => $inverters{$inverter}{'data'}{'d365'},
@@ -1313,7 +1313,7 @@ while (42) {
 
                 # Subroutine for Home Assistant Device/Entity configuration
                 sub ha_disc_config {
-						my $mqtt_serial_HA = $inverters{$inverter}{'serial'};	
+                        my $mqtt_serial_HA = $inverters{$inverter}{'serial'};	
 					
                         my %config_data = (
                             device => {
@@ -1329,7 +1329,7 @@ while (42) {
                             state_class => "measurement",
                         );
 
-						if ( $_[0] eq "serial" ){
+                        if ( $_[0] eq "serial" ){
                             $config_data{'icon'} = "mdi:solar-power";
                             $config_data{'name'} = "Serial number of inverter";
 
