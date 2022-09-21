@@ -1291,6 +1291,7 @@ while (42) {
                 # pmu_log("Severity 4: $log_json");
                
                 my %mqtt_data = (
+                    serial => $inverters{$inverter}{'serial'},
                     pac => $inverters{$inverter}{'data'}{'pac'},
                     max_power_today => $inverters{$inverter}{'max'}{'pac'}{'watts'},
                     d365 => $inverters{$inverter}{'data'}{'d365'},
@@ -1312,21 +1313,27 @@ while (42) {
 
                 # Subroutine for Home Assistant Device/Entity configuration
                 sub ha_disc_config {
+                        my $mqtt_serial_HA = $inverters{$inverter}{'serial'};	
+					
                         my %config_data = (
                             device => {
                                 identifiers => [
-                                    $mqtt_serial,
+                                    $mqtt_serial_HA,
                                     ],
                                 manufacturer => "Eversolar",
                                 model => $mqtt_inverter_model,
                                 name => "Solar Inverter"
                             },
-                            state_topic => "$mqtt_topic_prefix/$mqtt_serial/$_[0]",
-                            unique_id => "$mqtt_serial\_$_[0]",
+                            state_topic => "$mqtt_topic_prefix/$mqtt_serial_HA/$_[0]",
+                            unique_id => "$mqtt_serial_HA\_$_[0]",
                             state_class => "measurement",
                         );
 
-                        if ( $_[0] eq "pac" ){
+                        if ( $_[0] eq "serial" ){
+                            $config_data{'icon'} = "mdi:solar-power";
+                            $config_data{'name'} = "Serial number of inverter";
+
+                        } elsif ( $_[0] eq "pac" ){
                             $config_data{'icon'} = "mdi:solar-power";
                             $config_data{'name'} = "PV Solar Power Right Now";
                             $config_data{'unit_of_measurement'} = "W";
