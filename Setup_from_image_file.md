@@ -11,7 +11,7 @@ Here's an old link to an 4 GB image http://goo.gl/O41CVn Beware that not all 4 G
 ```
 dd if=..\backuprpifeb2015.img of=..\bk2.img bs=512 count=7800000
 ```
-The image works on Rasberry Pi 1 and 2, I doubt you will have tood results with a Raspberry Pi 3, 4 or 5, they require the manual installation here:
+The image works on Rasberry Pi 1 and 2, I doubt you will have tood results with a Raspberry Pi 3, 4 or 5, they require the manual installation here: https://github.com/solmoller/eversolar-monitor/blob/wiki/Software_installation.md
 
 After you have downloaded the image, upzip it.
 Download and install a tool to write image files like this one http://sourceforge.net/projects/win32diskimager/
