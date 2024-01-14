@@ -7,10 +7,11 @@ Some computer knowledge is required, but google can help you a lot, if you're in
 # Details #
 While having the raspberry pi near a computer monitor and a regular computer with internet access, you can prepare the setup in a simple manner:
 
-Here's a link to an 4 GB image http://goo.gl/O41CVn Beware that not all 4 GB cards have same capacity, so consider using a bigger card. Actually, find an 8 GB card now, and avid meddling with command lines like
+Here's an old link to an 4 GB image http://goo.gl/O41CVn Beware that not all 4 GB cards have same capacity, so consider using a bigger card. Actually, find an 8 GB card now, and avid meddling with command lines like
 ```
 dd if=..\backuprpifeb2015.img of=..\bk2.img bs=512 count=7800000
 ```
+The image works on Rasberry Pi 1 and 2, I doubt you will have tood results with a Raspberry Pi 3, 4 or 5, they require the manual installation here:
 
 After you have downloaded the image, upzip it.
 Download and install a tool to write image files like this one http://sourceforge.net/projects/win32diskimager/
