@@ -1,11 +1,13 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<!-- updated february 2017 to display 365 days production -->
-<html>
+<!-- updated january to work with newer versions of jquery -->
+<html lang="en">
 <head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Eversolar inverters Monitor</title>
 
-	<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/themes/start/jquery-ui.css" type="text/css" media="screen" />
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/themes/start/jquery-ui.css" type="text/css" media="screen" />
 
 	<style type="text/css">
 		body { width: 800px; margin: 0 auto; font-size: 8pt; }
@@ -21,12 +23,12 @@
 		.inverter_heading { font-weight: bold; }
 	</style>
 
-	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
 	<script type="text/javascript">
 		$(document).ready(function() {
 			var log_page = 1;
-			$("#log_data").scroll(function() {
+			$("#log_data").on("scroll", function() {
 				var log_data = $('#log_data');
 				if(log_data[0].scrollHeight - log_data.scrollTop() <= log_data.outerHeight()) {
 					$.get("/log?page="+log_page, function(data) {
@@ -36,78 +38,75 @@
 				}
 			});
 
-			$(".show_inverter_details").live("click", function() {
+			$(document).on("click", ".show_inverter_details", function() {
 				$(this).next(".inverter_details").slideToggle();
 			});
-		
+
 			function update_page() {
 				$("#log_data").load("/log");
 				var inverter_count = 0;
 				$.getJSON("/inverter-data", function(data) {
-                    $("#data").html('');
+					$("#data").html('');
 					$.each(data, function(inverter_id, inverter) {
-						$("#data").append('\
-        <div class="ui-widget ui-widget-content inverter">\
-	<div class="ui-widget ui-widget-content ui-state-highlight inverter_heading">'+inverter.id_string+'</div>\
-	<div class="inverter_content">\
-		<div>\
-					<div style="color: darkgreen; font-size: 36pt; font-weight: bold; float: right;">'+inverter.data.pac+'<span style="font-size: 14pt;">W</span></div>\
-					<div style="color: darkgreen; font-size: 14pt; font-weight: bold; padding-top: 6px;">Power<br />right now</div>\
-		</div>\
-			<div style="clear: right;">\
-			<div style="color: darkblue; font-size: 26pt; font-weight: bold; float: right;">'+inverter.data.e_today+'<span style="font-size: 12pt;">kWh</span></div>\
-			<div style="color: darkblue; font-size: 12pt; font-weight: bold; padding-top: 6px;">Total energy<br />today</div>\
-		</div>\
-		<div style="clear: right;">\
-			<div style="color: darkgreen; font-size: 20pt; font-weight: bold; float: right;">'+inverter.max.pac.watts+'<span style="font-size: 10pt;">W</span></div>\
-			<div style="color: darkgreen; font-size: 10pt; font-weight: bold; padding-top: 4px;">Max power<br />today ('+inverter.max.pac.timestamp.split(' ')[1]+')</div>\
-		</div>\
-		<div style="clear: right; font-size: 7pt;">\
-			<table style="width: 50%; float: left; padding: 10px 0;">\
-				<tr><td>AC Voltage (VAC)</td><td style="text-align: right;">'+inverter.data.vac+'V<td></tr>\
-				<tr><td>AC Current (IAC)</td><td style="text-align: right;">'+inverter.data.iac+'A<td></tr>\
-				<tr><td>AC frequency</td><td style="text-align: right;">'+inverter.data.frequency+'Hz<td></tr>\
-				<tr><td>Last 365 days production</td><td style="text-align: right;">'+inverter.data.d365+'kWh<td></tr>\
-			</table>\
-			<table style="width: 50%; float: left; padding: 10px 0;">\
-				<tr><td>PV Voltage (VPV)</td><td style="text-align: right;">'+inverter.data.vpv+'V<td></tr>\
-				<tr><td>PV Current (IPV)</td><td style="text-align: right;">'+inverter.data.ipv+'A<td></tr>\
-			</table>\
-			<div style="clear: both;"></div>\
-			<a href="#show" class="show_inverter_details">Show inverter details</a>\
-			<table class="inverter_details" style="display: none; padding-top: 10px;">\
-				<!-- <tr><td>Impedance</td><td>'+inverter.data.impedance+'<td></tr> -->\
-				<tr><td>ID string</td><td>'+inverter.id_string+'<td></tr>\
-				<tr><td>Serial number</td><td>'+inverter.serial+'<td></tr>\
-				<tr><td>Total uptime</td><td>'+inverter.data.hours_up+' hours<td></tr>\
-				<tr><td>Total energy</td><td>'+inverter.data.e_total+'kwh<td></tr>\
-				<tr><td>Operation mode</td><td>'+inverter.data.op_mode+'<td></tr>\
-				<tr><td>Inverter temperature</td><td>'+inverter.data.temp+'C<td></tr>\
-				<tr><td>Updated</td><td>'+inverter.data.timestamp+'<td></tr>\
-				<tr><td>Connect time</td><td>'+inverter.connected+'<td></tr>\
-			</table>\
-		</div>\
-	</div>\
-</div>\
-');
+						$("#data").append(`
+        <div class="ui-widget ui-widget-content inverter">
+			<div class="ui-widget ui-widget-content ui-state-highlight inverter_heading">${inverter.id_string}</div>
+			<div class="inverter_content">
+				<div>
+					<div style="color: darkgreen; font-size: 36pt; font-weight: bold; float: right;">${inverter.data.pac}<span style="font-size: 14pt;">W</span></div>
+					<div style="color: darkgreen; font-size: 14pt; font-weight: bold; padding-top: 6px;">Power<br />right now</div>
+				</div>
+				<div style="clear: right;">
+					<div style="color: darkblue; font-size: 26pt; font-weight: bold; float: right;">${inverter.data.e_today}<span style="font-size: 12pt;">kWh</span></div>
+					<div style="color: darkblue; font-size: 12pt; font-weight: bold; padding-top: 6px;">Total energy<br />today</div>
+				</div>
+				<div style="clear: right;">
+					<div style="color: darkgreen; font-size: 20pt; font-weight: bold; float: right;">${inverter.max.pac.watts}<span style="font-size: 10pt;">W</span></div>
+					<div style="color: darkgreen; font-size: 10pt; font-weight: bold; padding-top: 4px;">Max power<br />today (${inverter.max.pac.timestamp.split(' ')[1]})</div>
+				</div>
+				<div style="clear: right; font-size: 7pt;">
+					<table style="width: 50%; float: left; padding: 10px 0;">
+						<tr><td>AC Voltage (VAC)</td><td style="text-align: right;">${inverter.data.vac}V</td></tr>
+						<tr><td>AC Current (IAC)</td><td style="text-align: right;">${inverter.data.iac}A</td></tr>
+						<tr><td>AC frequency</td><td style="text-align: right;">${inverter.data.frequency}Hz</td></tr>
+						<tr><td>Last 365 days production</td><td style="text-align: right;">${inverter.data.d365}kWh</td></tr>
+					</table>
+					<table style="width: 50%; float: left; padding: 10px 0;">
+						<tr><td>PV Voltage (VPV)</td><td style="text-align: right;">${inverter.data.vpv}V</td></tr>
+						<tr><td>PV Current (IPV)</td><td style="text-align: right;">${inverter.data.ipv}A</td></tr>
+					</table>
+					<div style="clear: both;"></div>
+					<a href="#show" class="show_inverter_details">Show inverter details</a>
+					<table class="inverter_details" style="display: none; padding-top: 10px;">
+						<!-- <tr><td>Impedance</td><td>${inverter.data.impedance}</td></tr> -->
+						<tr><td>ID string</td><td>${inverter.id_string}</td></tr>
+						<tr><td>Serial number</td><td>${inverter.serial}</td></tr>
+						<tr><td>Total uptime</td><td>${inverter.data.hours_up} hours</td></tr>
+						<tr><td>Total energy</td><td>${inverter.data.e_total}kwh</td></tr>
+						<tr><td>Operation mode</td><td>${inverter.data.op_mode}</td></tr>
+						<tr><td>Inverter temperature</td><td>${inverter.data.temp}C</td></tr>
+						<tr><td>Updated</td><td>${inverter.data.timestamp}</td></tr>
+						<tr><td>Connect time</td><td>${inverter.connected}</td></tr>
+					</table>
+				</div>
+			</div>
+		</div>
+		`);
 
 						inverter_count++;
-						
+
 						if(inverter_count == 2) {
-						$("#data").append('<h2 class="inverter"><div style="color: darkgreen; font-size: 16pt; font-weight: bold; float: center;">Combined Power Right Now<br />'+inverter.data.total_power+' W<br></div></h2>');
-						$("#data").append('<h2 class="inverter"><div style="color: darkblue; font-size: 16pt; font-weight: bold; float: center;">Combined Energy Today<br />'+inverter.data.total_daykwh+' kWh</div></h2>');
+							$("#data").append(`<h2 class="inverter"><div style="color: darkgreen; font-size: 16pt; font-weight: bold; float: center;">Combined Power Right Now<br />${inverter.data.total_power} W<br></div></h2>`);
+							$("#data").append(`<h2 class="inverter"><div style="color: darkblue; font-size: 16pt; font-weight: bold; float: center;">Combined Energy Today<br />${inverter.data.total_daykwh} kWh</div></h2>`);
 						}
 					});
-					
-				
 
-					if(!inverter_count) {
+					if (!inverter_count) {
 						$("#data").html('<h2 class="inverter">No inverters connected</h2>');
 					}
-
 				});
-		
-				setTimeout(update_page, "300000");
+
+				setTimeout(update_page, 300000);
 			}
 
 			update_page();
