@@ -93,8 +93,11 @@
 #       - Added MQTT functionalities.
 #       - Added MQTT Auto Diascovery for Home Assistant
 #
-# Version 0.191 january 2022 - Changes by Henrik Jørgemsem
+# Version 0.191 january 2022 - Changes by Henrik Jørgemsen
 #       - Changed naming of Home Assistant Entities, so they group nicely in HASS
+#
+# Version 0.192 january 2024 - Changes by LeighAs & NagyDavid entered by  Henrik Jørgemsen
+#       - removed a + that was a bug and entered code that enabled export of multiple inverters to Home Assistant
 #
 # Eversolar communications packet definition:
 # 0xaa, 0x55, 	# header
@@ -1311,21 +1314,22 @@ while (42) {
                pmu_log("Severity 3: MQTT inverter hash is flattened");
 
                # Subroutine for Home Assistant Device/Entity configuration
-               sub ha_disc_config {
+              sub ha_disc_config {
+                       my $mqtt_serial_HA = $inverters{$inverter}{'serial'};
                        my %config_data = (
                            device => {
                                identifiers => [
-                                   $mqtt_serial,
+                                   $mqtt_serial_HA,
                                    ],
                                manufacturer => "Eversolar",
                                model => $mqtt_inverter_model,
                                name => "Solar Inverter"
                            },
-                           state_topic => "$mqtt_topic_prefix/$mqtt_serial/$_[0]",
-                           unique_id => "$mqtt_serial\_$_[0]",
+                           state_topic => "$mqtt_topic_prefix/$mqtt_serial_HA/$_[0]",
+                           unique_id => "$mqtt_serial_HA\_$_[0]",
+                           state_class => "measurement",
                        );
-
-                       if ( $_[0] eq "pac" ){
+                     if ( $_[0] eq "pac" ){
                            $config_data{'icon'} = "mdi:solar-power";
                            $config_data{'name'} = "PV Solar Power Right Now";
                            $config_data{'unit_of_measurement'} = "W";
