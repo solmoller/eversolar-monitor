@@ -36,7 +36,7 @@
 				}
 			});
 
-			$(".show_inverter_details").live("click", function() {
+			$(document).on("click", ".show_inverter_details", function() {
 				$(this).next(".inverter_details").slideToggle();
 			});
 		
